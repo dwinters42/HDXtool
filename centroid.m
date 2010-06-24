@@ -1,4 +1,14 @@
-function c=centroid(r,threshold,low,high)
+function c=centroid(r)
+
+# select threshold, low and high value with mouse
+figure(1);
+[cx,cy,but]=ginput(3);
+
+threshold=cy(1);
+low=cx(2);
+high=cx(3);
+
+printf("threshold: %f, using data from %f to %f]\n",threshold,low,high)
 
 # only select the x and y values in the window 
 ind=find(r(:,1)>=low & r(:,1) < high);
