@@ -29,6 +29,10 @@ from pylab import *
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
+        
+        self.ids={'roi':wx.ID_HIGHEST+1,'suggest':wx.ID_HIGHEST+2, \
+                      'select':wx.ID_HIGHEST+3}
+
         # begin wxGlade: MainFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
         wx.Frame.__init__(self, *args, **kwds)
@@ -55,9 +59,12 @@ class MainFrame(wx.Frame):
         self.SetToolBar(self.frame_1_toolbar)
         self.frame_1_toolbar.AddLabelTool(wx.ID_OPEN, "Load", (wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
         self.frame_1_toolbar.AddLabelTool(wx.ID_SAVE, "Save", (wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
-        self.frame_1_toolbar.AddLabelTool(wx.ID_FORWARD, "Next", (wx.ArtProvider.GetBitmap(wx.ART_GO_FORWARD, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
+        self.frame_1_toolbar.AddLabelTool(self.ids['roi'], "ROI", (wx.ArtProvider.GetBitmap(wx.ART_GO_FORWARD, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
+        self.frame_1_toolbar.AddLabelTool(self.ids['suggest'], "Suggest", (wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
+        self.frame_1_toolbar.AddLabelTool(self.ids['select'], "Select", (wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
         # Tool Bar end
         self.textCtrlData = wx.TextCtrl(self.panel_1, -1, "", style=wx.TE_MULTILINE)
+        self.frame_1_statusbar = self.CreateStatusBar(1, 0)
 
         self.__set_properties()
         self.__do_layout()
@@ -65,17 +72,26 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.loadData, id=wx.ID_OPEN)
         self.Bind(wx.EVT_MENU, self.saveData, id=wx.ID_SAVE)
         self.Bind(wx.EVT_MENU, self.onExit, id=wx.ID_EXIT)
-        self.Bind(wx.EVT_MENU, self.nextFragment, id=wx.ID_FORWARD)
         self.Bind(wx.EVT_MENU, self.printInfo, id=wx.ID_ABOUT)
         self.Bind(wx.EVT_TOOL, self.loadData, id=wx.ID_OPEN)
         self.Bind(wx.EVT_TOOL, self.saveData, id=wx.ID_SAVE)
-        self.Bind(wx.EVT_TOOL, self.nextFragment, id=wx.ID_FORWARD)
+        self.Bind(wx.EVT_TOOL, self.setROI, id=self.ids['roi'])
+        self.Bind(wx.EVT_TOOL, self.suggestPeaks, id=self.ids['suggest'])
+        self.Bind(wx.EVT_TOOL, self.selectPeaks, id=self.ids['select'])
         # end wxGlade
         
         self.dfile=''
         self.paramfile=''
+        self.xdata=None
+        self.ydata=None
+
+        # ROI stuff
+        self.low=None
+        self.high=None
+        self.thres=None
         self.hl1=None
 
+        # peak stuff
         self.peaks=[]
 
     def __set_properties(self):
@@ -83,6 +99,11 @@ class MainFrame(wx.Frame):
         self.SetTitle("HDXtool")
         self.frame_1_toolbar.Realize()
         self.textCtrlData.SetMinSize((278, 365))
+        self.frame_1_statusbar.SetStatusWidths([-1])
+        # statusbar fields
+        frame_1_statusbar_fields = ["Ready"]
+        for i in range(len(frame_1_statusbar_fields)):
+            self.frame_1_statusbar.SetStatusText(frame_1_statusbar_fields[i], i)
         # end wxGlade
 
     def __do_layout(self):
@@ -104,11 +125,11 @@ class MainFrame(wx.Frame):
             self.textCtrlData.Clear()
             self.dfile=dlg.GetPath()
             d=loadtxt(self.dfile)
-            self.x=d[:,0]
-            self.y=d[:,1]
+            self.xdata=d[:,0]
+            self.ydata=d[:,1]
             figure(1)
             clf();
-            plot(self.x,self.y)
+            plot(self.xdata,self.ydata)
             show()
             draw()
 
@@ -149,7 +170,8 @@ class MainFrame(wx.Frame):
 
                 draw()
 
-    def nextFragment(self, event): # wxGlade: MainFrame.<event_handler>
+   
+    def setROI(self, event): # wxGlade: MainFrame.<event_handler>
         if self.dfile == '':
             dlg=wx.MessageBox('No data loaded!','Error', wx.ID_OK)
             return
@@ -161,66 +183,50 @@ class MainFrame(wx.Frame):
 
         # pick threshold and left and right limit
         pos=ginput(1)
-        thres=pos[0][1]
-        self.hl1=axhline(y=thres,color='r')
+        self.thres=pos[0][1]
+        self.hl1=axhline(y=self.thres,color='r')
         draw()
 
         pos=ginput(1)
-        low=pos[0][0]
-        self.hl2=axvline(x=low,color='g')
+        self.low=pos[0][0]
+        self.hl2=axvline(x=self.low,color='g')
         draw()
 
         pos=ginput(1)
-        high=pos[0][0]
-        self.hl3=axvline(x=high,color='g')
+        self.high=pos[0][0]
+        self.hl3=axvline(x=self.high,color='g')
         draw()
 
-        x=take(self.x,find((self.x>low)&(self.x<high)))
-        y=take(self.y,find((self.x>low)&(self.x<high)))
+        # copy only the data in the region of interest
+        self.x=take(self.xdata,find((self.xdata>self.low)&(self.xdata<self.high)))
+        self.y=take(self.ydata,find((self.xdata>self.low)&(self.xdata<self.high)))
 
         # threshold
-        yth=zeros(len(y))
-        for ii in range(0,len(y)):
-            if y[ii]<thres:
-                yth[ii]=0
+        self.yth=zeros(len(self.y))
+        for ii in range(0,len(self.y)):
+            if self.y[ii]<self.thres:
+                self.yth[ii]=0
             else:
-                yth[ii]=y[ii]
+                self.yth[ii]=self.y[ii]
 
-        # pick the peaks
-        (x1,y1)=self._pickpeak(x,yth)
-        (x2,y2)=self._pickpeak(x,yth)
+    def suggestPeaks(self, event): # wxGlade: MainFrame.<event_handler>
+        # let the user select two peaks
+        (x1,y1)=self._pickpeak(self.x,self.yth)
+        (x2,y2)=self._pickpeak(self.x,self.yth)
         meandist=(max(x1,x2)-min(x1,x2))
+        delta=meandist*0.01
 
-        self.peaks.append(self.findallpeaks(x,yth,x1,y1,meandist,meandist*0.01,low,high))
-
-        # calculate centroid
-        c=0
-        for ii in range(0,len(y)):
-            c=c+x[ii]*yth[ii]
-
-        c=c/yth.sum()
-        self.textCtrlData.AppendText(\
-            "%.2f, %.2f, %.2e, %.2f\n" % \
-                (low,high,thres,c))
-        self.textCtrlData.MarkDirty()
-        self.hl2.remove()
-        self.hl3.remove()
-        self.hl4=axvline(x=c,color='c')
-        tmp=axis()
-        axvspan(low,high,alpha=0.1,color='k')
-        axis(tmp)
-        draw()
-
-    def findallpeaks(self,x,y,startx,starty,meandist,delta,minval,maxval):
-        # start from startpeak, go to the right until maxval and mark
+        # start from startpeak, go to the right until self.high and mark
         # peaks, then do the same to the left
-        peakvalx=[startx]
-        peakvaly=[starty]
+        peakvalx=[x1]
+        peakvaly=[y1]
         means=[meandist]
-        p=startx+meandist
-        pold=startx
-        while p<maxval:
-            (localmaxpos,localmax)=self._localpeak((p,0),x,y,delta)
+        p=x1+meandist
+        pold=x1
+
+        while p<self.high:
+            (localmaxpos,localmax)=self._localpeak((p,0),self.x,self.yth,delta)
+            print(localmaxpos,localmax)
             if localmax>0:
                 tmp=axis()
                 plot(localmaxpos,localmax,'go')
@@ -231,10 +237,10 @@ class MainFrame(wx.Frame):
             pold=p
             p=p+(sum(means)/len(means))
 
-        p=startx-meandist
-        pold=startx
-        while p>minval:
-            (localmaxpos,localmax)=self._localpeak((p,0),x,y,delta)
+        p=x1-meandist
+        pold=x1
+        while p>self.low:
+            (localmaxpos,localmax)=self._localpeak((p,0),self.x,self.yth,delta)
             if localmax>0:
                 tmp=axis()
                 plot(localmaxpos,localmax,'go')
@@ -249,8 +255,25 @@ class MainFrame(wx.Frame):
         peaks[:,0]=peakvalx
         peaks[:,1]=peakvaly
 
-        return peaks
 
+    def selectPeaks(self, event): # wxGlade: MainFrame.<event_handler>
+        # calculate centroid
+        c=0
+        for ii in range(0,len(y)):
+            c=c+x[ii]*self.yth[ii]
+
+        c=c/yth.sum()
+        self.textCtrlData.AppendText(\
+            "%.2f, %.2f, %.2e, %.2f\n" % \
+                (self.low,self.high,self.thres,c))
+        self.textCtrlData.MarkDirty()
+        self.hl2.remove()
+        self.hl3.remove()
+        self.hl4=axvline(x=c,color='c')
+        tmp=axis()
+        axvspan(low,high,alpha=0.1,color='k')
+        axis(tmp)
+        draw()
 
     def saveData(self, event): # wxGlade: MainFrame.<event_handler>
         if self.dfile == '':
@@ -307,7 +330,7 @@ class MainFrame(wx.Frame):
         
         return (localmaxpos,localmax)
 
-   
+
 # end of class MainFrame
 
 class MyApp(wx.App):
