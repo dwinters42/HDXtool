@@ -23,7 +23,7 @@ import wx
 # begin wxGlade: extracode
 # end wxGlade
 
-import os
+import os, pickle
 from pylab import *
 
 
@@ -76,6 +76,8 @@ class MainFrame(wx.Frame):
         self.paramfile=''
         self.hl1=None
 
+        self.peaks=[]
+
     def __set_properties(self):
         # begin wxGlade: MainFrame.__set_properties
         self.SetTitle("HDXtool")
@@ -98,6 +100,7 @@ class MainFrame(wx.Frame):
     def loadData(self, event): # wxGlade: MainFrame.<event_handler>
         dlg=wx.FileDialog(self)
         if dlg.ShowModal() == wx.ID_OK:
+            # load data file, plot data
             self.textCtrlData.Clear()
             self.dfile=dlg.GetPath()
             d=loadtxt(self.dfile)
@@ -109,6 +112,7 @@ class MainFrame(wx.Frame):
             show()
             draw()
 
+            # load the file with the parameters
             self.paramfile=os.path.splitext(self.dfile)[0]+"_params.txt"
 
             if os.access(self.paramfile, os.R_OK | os.W_OK):
@@ -128,6 +132,23 @@ class MainFrame(wx.Frame):
                 self.textCtrlData.AppendText(\
                     '# Columns: low, high, threshold, centroid\n')
 
+            # get the selected peaks from _peaks.dat file
+            self.peakfile=os.path.splitext(self.dfile)[0]+"_peaks.dat"
+            if os.access(self.peakfile, os.R_OK):
+                self.peaks=[]
+                df=file(self.peakfile,'rb')
+                try:
+                    self.peaks=pickle.load(df)
+                except:
+                    wx.MessageBox(\
+                        "Cannot read peak data file!","Warning", wx.OK)
+                df.close()
+
+                for ii in range(len(self.peaks)):
+                    plot(self.peaks[ii][:,0],self.peaks[ii][:,1],'ro')
+
+                draw()
+
     def nextFragment(self, event): # wxGlade: MainFrame.<event_handler>
         if self.dfile == '':
             dlg=wx.MessageBox('No data loaded!','Error', wx.ID_OK)
@@ -138,6 +159,7 @@ class MainFrame(wx.Frame):
             self.hl4.remove()
             draw()
 
+        # pick threshold and left and right limit
         pos=ginput(1)
         thres=pos[0][1]
         self.hl1=axhline(y=thres,color='r')
@@ -156,14 +178,22 @@ class MainFrame(wx.Frame):
         x=take(self.x,find((self.x>low)&(self.x<high)))
         y=take(self.y,find((self.x>low)&(self.x<high)))
 
+        # threshold
         yth=zeros(len(y))
-
         for ii in range(0,len(y)):
             if y[ii]<thres:
                 yth[ii]=0
             else:
                 yth[ii]=y[ii]
 
+        # pick the peaks
+        (x1,y1)=self.pickpeak(x,yth)
+        (x2,y2)=self.pickpeak(x,yth)
+        meandist=(max(x1,x2)-min(x1,x2))
+
+        self.peaks.append(self.findallpeaks(x,yth,x1,y1,meandist,meandist*0.01,low,high))
+
+        # calculate centroid
         c=0
         for ii in range(0,len(y)):
             c=c+x[ii]*yth[ii]
@@ -181,6 +211,71 @@ class MainFrame(wx.Frame):
         axis(tmp)
         draw()
 
+    def localpeak(self,pos,x,y,delta):
+        localx=take(x,find((x>(pos[0]-delta))&(x<(pos[0]+delta))))
+        localy=take(y,find((x>(pos[0]-delta))&(x<(pos[0]+delta))))
+    
+        localmax=localy.max()
+        localmaxpos=take(localx,find(localy==localy.max()))[0]
+        
+        return (localmaxpos,localmax)
+
+
+    def pickpeak(self,x,y):
+        ii=axis()
+        # XXX this is a bit dodgy
+        delta=(ii[1]-ii[0])/200.0
+        pos=ginput(1)
+        pos=pos[0]
+        (localmaxpos,localmax)=self.localpeak(pos,x,y,delta)
+
+        tmp=axis()
+        plot(localmaxpos,localmax,'go')
+        axis(tmp)
+        return (localmaxpos,localmax)
+
+    
+    def findallpeaks(self,x,y,startx,starty,meandist,delta,minval,maxval):
+        # start from startpeak, go to the right until maxval and mark
+        # peaks, then do the same to the left
+        peakvalx=[startx]
+        peakvaly=[starty]
+        means=[meandist]
+        p=startx+meandist
+        pold=startx
+        while p<maxval:
+            (localmaxpos,localmax)=self.localpeak((p,0),x,y,delta)
+            if localmax>0:
+                tmp=axis()
+                plot(localmaxpos,localmax,'go')
+                axis(tmp)
+                peakvalx.append(localmaxpos)
+                peakvaly.append(localmax)
+                means.append(abs(localmaxpos-pold))
+            pold=p
+            p=p+(sum(means)/len(means))
+
+        p=startx-meandist
+        pold=startx
+        while p>minval:
+            (localmaxpos,localmax)=self.localpeak((p,0),x,y,delta)
+            if localmax>0:
+                tmp=axis()
+                plot(localmaxpos,localmax,'go')
+                axis(tmp)
+                peakvalx.append(localmaxpos)
+                peakvaly.append(localmax)
+                means.append(abs(localmaxpos-pold))
+            pold=p
+            p=p-(sum(means)/len(means))
+
+        peaks=zeros((len(peakvalx),2))
+        peaks[:,0]=peakvalx
+        peaks[:,1]=peakvaly
+
+        return peaks
+
+
     def saveData(self, event): # wxGlade: MainFrame.<event_handler>
         if self.dfile == '':
             dlg=wx.MessageBox('No data loaded!','Error', wx.ID_OK)
@@ -188,11 +283,15 @@ class MainFrame(wx.Frame):
 
         if os.access(self.paramfile,os.R_OK | os.W_OK):
             if wx.MessageBox(\
-                "File exists, overwrite?","Overwrite", wx.YES_NO) == wx.NO:
+                "Data files exist, overwrite?","Overwrite", \
+                    wx.YES_NO) == wx.NO:
                 return
-            
-        self.textCtrlData.SaveFile(self.paramfile)
-
+        
+        self.textCtrlData.SaveFile(self.paramfile)        
+        df=file(self.peakfile,'wb')
+        pickle.dump(self.peaks,df)
+        df.close()
+        
     def onExit(self, event): # wxGlade: MainFrame.<event_handler>
         if self.textCtrlData.IsModified():
             if wx.MessageBox(\
@@ -210,8 +309,8 @@ class MainFrame(wx.Frame):
         info.AddDeveloper("Daniel Gruber <daniel@tydirium.org>")
         wx.AboutBox(info)
 
+   
 # end of class MainFrame
-
 
 class MyApp(wx.App):
     def OnInit(self):
