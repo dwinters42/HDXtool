@@ -187,8 +187,8 @@ class MainFrame(wx.Frame):
                 yth[ii]=y[ii]
 
         # pick the peaks
-        (x1,y1)=self.pickpeak(x,yth)
-        (x2,y2)=self.pickpeak(x,yth)
+        (x1,y1)=self._pickpeak(x,yth)
+        (x2,y2)=self._pickpeak(x,yth)
         meandist=(max(x1,x2)-min(x1,x2))
 
         self.peaks.append(self.findallpeaks(x,yth,x1,y1,meandist,meandist*0.01,low,high))
@@ -211,30 +211,6 @@ class MainFrame(wx.Frame):
         axis(tmp)
         draw()
 
-    def localpeak(self,pos,x,y,delta):
-        localx=take(x,find((x>(pos[0]-delta))&(x<(pos[0]+delta))))
-        localy=take(y,find((x>(pos[0]-delta))&(x<(pos[0]+delta))))
-    
-        localmax=localy.max()
-        localmaxpos=take(localx,find(localy==localy.max()))[0]
-        
-        return (localmaxpos,localmax)
-
-
-    def pickpeak(self,x,y):
-        ii=axis()
-        # XXX this is a bit dodgy
-        delta=(ii[1]-ii[0])/200.0
-        pos=ginput(1)
-        pos=pos[0]
-        (localmaxpos,localmax)=self.localpeak(pos,x,y,delta)
-
-        tmp=axis()
-        plot(localmaxpos,localmax,'go')
-        axis(tmp)
-        return (localmaxpos,localmax)
-
-    
     def findallpeaks(self,x,y,startx,starty,meandist,delta,minval,maxval):
         # start from startpeak, go to the right until maxval and mark
         # peaks, then do the same to the left
@@ -244,7 +220,7 @@ class MainFrame(wx.Frame):
         p=startx+meandist
         pold=startx
         while p<maxval:
-            (localmaxpos,localmax)=self.localpeak((p,0),x,y,delta)
+            (localmaxpos,localmax)=self._localpeak((p,0),x,y,delta)
             if localmax>0:
                 tmp=axis()
                 plot(localmaxpos,localmax,'go')
@@ -258,7 +234,7 @@ class MainFrame(wx.Frame):
         p=startx-meandist
         pold=startx
         while p>minval:
-            (localmaxpos,localmax)=self.localpeak((p,0),x,y,delta)
+            (localmaxpos,localmax)=self._localpeak((p,0),x,y,delta)
             if localmax>0:
                 tmp=axis()
                 plot(localmaxpos,localmax,'go')
@@ -308,6 +284,28 @@ class MainFrame(wx.Frame):
         info.SetCopyright("(c) 2010 Daniel Gruber")
         info.AddDeveloper("Daniel Gruber <daniel@tydirium.org>")
         wx.AboutBox(info)
+
+    def _pickpeak(self,x,y):
+        ii=axis()
+        # XXX this is a bit dodgy
+        delta=(ii[1]-ii[0])/200.0
+        pos=ginput(1)
+        pos=pos[0]
+        (localmaxpos,localmax)=self._localpeak(pos,x,y,delta)
+
+        tmp=axis()
+        plot(localmaxpos,localmax,'go')
+        axis(tmp)
+        return (localmaxpos,localmax)
+
+    def _localpeak(self,pos,x,y,delta):
+        localx=take(x,find((x>(pos[0]-delta))&(x<(pos[0]+delta))))
+        localy=take(y,find((x>(pos[0]-delta))&(x<(pos[0]+delta))))
+    
+        localmax=localy.max()
+        localmaxpos=take(localx,find(localy==localy.max()))[0]
+        
+        return (localmaxpos,localmax)
 
    
 # end of class MainFrame
