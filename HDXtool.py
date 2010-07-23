@@ -28,6 +28,7 @@ matplotlib.use('WxAgg')
 
 import os, yaml
 from pylab import *
+import scipy.optimize
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -393,11 +394,36 @@ class MainFrame(wx.Frame):
         return (localmaxpos,localmax)
 
     def _localpeak(self,pos,x,y,delta):
+        # this is a two-stage peak finding
+        # first, find the highest y value in delta
         localx=take(x,find((x>(pos[0]-delta))&(x<(pos[0]+delta))))
         localy=take(y,find((x>(pos[0]-delta))&(x<(pos[0]+delta))))
-    
+
         localmax=localy.max()
         localmaxpos=take(localx,find(localy==localy.max()))[0]
+
+        xx=arange(min(localx),max(localx),0.0001)
+        # then, fit a lorentzian in a smaller window delta2 around the
+        # maximum
+        delta2=0.004
+
+        localx=take(x,find(abs(x-localmaxpos) < delta2))
+        localy=take(y,find(abs(x-localmaxpos) < delta2))
+
+        #fitfunc = lambda p, x: p[0]*exp(-(x-p[1])**2/(2.0*p[2]**2))
+        fitfunc = lambda p, x: p[0]/(1+((x-p[1])/p[2])**2)
+        errfunc = lambda p, x, y: fitfunc(p,x)-y
+
+        p0=[localmax,localmaxpos,0.03]
+        p1, success = scipy.optimize.leastsq(errfunc, p0, args=(localx,localy))
+
+        print(p1)
+        figure(2)
+        clf()
+        plot(localx,localy,'ro')
+        plot(xx,fitfunc(p1,xx),'b-')
+        grid(True)
+        figure(1)
         
         return (localmaxpos,localmax)
 
