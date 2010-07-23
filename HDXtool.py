@@ -326,13 +326,10 @@ class MainFrame(wx.Frame):
         if len(self.data)>0:
             for item in self.data:
                 ind=self.listctrlData.InsertStringItem(0,'%.1f' % item['low'])
-                print(ind)
                 self.listctrlData.SetStringItem(ind,1,'%.1f' % item['high'])
                 self.listctrlData.SetStringItem(ind,2,'%.1e' % item['thres'])
                 self.listctrlData.SetStringItem(ind,3,'%.1f' % item['centroid'])
                 self.listctrlData.SetStringItem(ind,4,'%.1f' % item['charge'])
-
-            print(self.data)
 
 # end of class MainFrame
 
