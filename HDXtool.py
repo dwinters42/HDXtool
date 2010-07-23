@@ -220,6 +220,10 @@ class MainFrame(wx.Frame):
 
         try:
             self.peaks_sel[0].remove()
+        except:
+            pass
+
+        try:
             self.centroid_line.remove()
         except:
             pass
@@ -263,12 +267,6 @@ class MainFrame(wx.Frame):
         self.peaks_sel=plot(self.peakvalx,self.peakvaly,'go')
         axis(tmp)
 
-        # if wx.MessageBox("Take suggested peaks?","Question", \
-        #             wx.YES_NO) == wx.NO:
-        #     # the user wants to select them manually
-        #     p=ginput(0)
-        #     # XXX
-
         # calculate centroid
         c=0
         for ii in range(0,len(self.yth)):
@@ -280,8 +278,51 @@ class MainFrame(wx.Frame):
 
 
     def manualPeaks(self, event): # wxGlade: MainFrame.<event_handler>
-        print "Event handler `manualPeaks' not implemented"
-        event.Skip()
+        if self.low is None or self.high is None or self.thres is None:
+            dlg=wx.MessageBox('No ROI selected!','Error', wx.ID_OK)
+            return
+
+        # grey out the suggested peaks if present
+        try:
+            self.peaks_sel[0].set_color('k')
+        except:
+            pass
+        draw()
+
+        self.peakvalx=[]
+        self.peakvaly=[]
+
+        # let the user click on the peaks, right click cancels last
+        # point, middle button ends
+        d=ginput(0,timeout=0)
+
+        ii=axis()
+        # XXX this is a bit dodgy
+        delta=(ii[1]-ii[0])/200.0
+
+        for p in d:
+            x,y=self._localpeak(p,self.x,self.yth,delta)
+            self.peakvalx.append(x)
+            self.peakvaly.append(y)
+        
+        tmp=axis()
+        try:
+            self.peaks_sel[0].remove()
+        except:
+            pass
+        self.peaks_sel=plot(self.peakvalx,self.peakvaly,'go')
+        axis(tmp)
+
+        # calculate centroid
+        c=0
+        for ii in range(0,len(self.yth)):
+            c=c+self.x[ii]*self.yth[ii]
+
+        self.centroid=c/self.yth.sum()
+        self.centroid_line=axvline(x=self.centroid,color='c')
+        draw()
+        
+
 
     def acceptPeaks(self, event): # wxGlade: MainFrame.<event_handler>
         if self.low is None or self.high is None or self.thres is None:
@@ -308,6 +349,7 @@ class MainFrame(wx.Frame):
 
         self.centroid_line.remove()
         self.peaks_sel[0].set_color('m')
+        self.peaks_sel=None
         draw()
 
         
