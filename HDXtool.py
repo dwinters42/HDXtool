@@ -23,9 +23,8 @@ import wx
 # begin wxGlade: extracode
 # end wxGlade
 
-import os, pickle
+import os, yaml
 from pylab import *
-
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -62,7 +61,7 @@ class MainFrame(wx.Frame):
         self.frame_1_toolbar.AddLabelTool(self.ids['roi'], "ROI", (wx.ArtProvider.GetBitmap(wx.ART_GO_FORWARD, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
         self.frame_1_toolbar.AddLabelTool(self.ids['pick'], "Pick Peaks", (wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
         # Tool Bar end
-        self.textCtrlData = wx.TextCtrl(self.panel_1, -1, "", style=wx.TE_MULTILINE)
+        self.listctrlData = wx.ListCtrl(self.panel_1, -1, style=wx.LC_REPORT|wx.LC_AUTOARRANGE|wx.LC_SINGLE_SEL|wx.LC_HRULES|wx.LC_VRULES|wx.SUNKEN_BORDER)
 
         self.__set_properties()
         self.__do_layout()
@@ -77,7 +76,7 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.setROI, id=self.ids['roi'])
         self.Bind(wx.EVT_TOOL, self.pickPeaks, id=self.ids['pick'])
         # end wxGlade
-        
+
         self.dfile=''
         self.paramfile=''
         self.xdata=None
@@ -89,8 +88,10 @@ class MainFrame(wx.Frame):
         self.thres=None
         self.hl1=None
 
-        # peak stuff
-        self.peaks=[]
+        self.data=[]
+        self.data_changed=False
+
+        self._updateListCtrl()
 
     def __set_properties(self):
         # begin wxGlade: MainFrame.__set_properties
@@ -101,14 +102,14 @@ class MainFrame(wx.Frame):
         for i in range(len(frame_1_statusbar_fields)):
             self.frame_1_statusbar.SetStatusText(frame_1_statusbar_fields[i], i)
         self.frame_1_toolbar.Realize()
-        self.textCtrlData.SetMinSize((278, 365))
+        self.listctrlData.SetMinSize((402, 426))
         # end wxGlade
 
     def __do_layout(self):
         # begin wxGlade: MainFrame.__do_layout
         sizer_1 = wx.BoxSizer(wx.VERTICAL)
         sizer_2 = wx.BoxSizer(wx.HORIZONTAL)
-        sizer_2.Add(self.textCtrlData, 1, wx.ALL|wx.EXPAND, 5)
+        sizer_2.Add(self.listctrlData, 1, wx.ALL|wx.EXPAND, 5)
         self.panel_1.SetSizer(sizer_2)
         sizer_1.Add(self.panel_1, 1, wx.EXPAND, 0)
         self.SetSizer(sizer_1)
@@ -120,7 +121,6 @@ class MainFrame(wx.Frame):
         dlg=wx.FileDialog(self)
         if dlg.ShowModal() == wx.ID_OK:
             # load data file, plot data
-            self.textCtrlData.Clear()
             self.dfile=dlg.GetPath()
             d=loadtxt(self.dfile)
             self.xdata=d[:,0]
@@ -128,48 +128,30 @@ class MainFrame(wx.Frame):
             figure(1)
             clf();
             plot(self.xdata,self.ydata)
-            show()
-            draw()
 
             # load the file with the parameters
-            self.paramfile=os.path.splitext(self.dfile)[0]+"_params.txt"
+            self.paramfile=os.path.splitext(self.dfile)[0]+"_params.yaml"
 
             if os.access(self.paramfile, os.R_OK | os.W_OK):
-                self.textCtrlData.LoadFile(self.paramfile)
-                for ii in range(0,self.textCtrlData.GetNumberOfLines()):
-                    dline=self.textCtrlData.GetLineText(ii)
-                    if len(dline) == 0 or dline[0] == '#':
-                        pass
-                    else:
-                        fields=dline.split(',')
-                        axvspan(float(fields[0]),float(fields[1]),\
-                                    alpha=0.1,color='k')
-                    
-                draw()
-            else:
-                self.textCtrlData.AppendText('# HDXtool parameter file\n')
-                self.textCtrlData.AppendText(\
-                    '# Columns: low, high, threshold, centroid\n')
-
-            # get the selected peaks from _peaks.dat file
-            self.peakfile=os.path.splitext(self.dfile)[0]+"_peaks.dat"
-            if os.access(self.peakfile, os.R_OK):
-                self.peaks=[]
-                df=file(self.peakfile,'rb')
+                df=file(self.paramfile,'r')
                 try:
-                    self.peaks=pickle.load(df)
+                    self.data=yaml.load(df)
                 except:
                     wx.MessageBox(\
                         "Cannot read peak data file!","Warning", wx.OK)
                 df.close()
+                self._updateListCtrl()
 
-                for ii in range(len(self.peaks)):
-                    plot(self.peaks[ii][:,0],self.peaks[ii][:,1],'ro')
+                for item in self.data:
+                    axvspan(item['low'],item['high'],alpha=0.1,color='k')
 
-                draw()
-
+            show()
+            draw()
+            self.data_changed=False
    
     def setROI(self, event): # wxGlade: MainFrame.<event_handler>
+        # XXX clear variables
+        
         if self.dfile == '':
             dlg=wx.MessageBox('No data loaded!','Error', wx.ID_OK)
             return
@@ -208,6 +190,8 @@ class MainFrame(wx.Frame):
                 self.yth[ii]=self.y[ii]
 
     def pickPeaks(self, event): # wxGlade: MainFrame.<event_handler>
+        # XXX clear variables
+
         # let the user select two peaks
         (x1,y1)=self._pickpeak(self.x,self.yth)
         (x2,y2)=self._pickpeak(self.x,self.yth)
@@ -216,21 +200,20 @@ class MainFrame(wx.Frame):
 
         # start from startpeak, go to the right until self.high and mark
         # peaks, then do the same to the left
-        peakvalx=[x1]
-        peakvaly=[y1]
+        peakvalx=[float(x1)]
+        peakvaly=[float(y1)]
         means=[meandist]
         p=x1+meandist
         pold=x1
 
         while p<self.high:
             (localmaxpos,localmax)=self._localpeak((p,0),self.x,self.yth,delta)
-            print(localmaxpos,localmax)
             if localmax>0:
                 tmp=axis()
                 plot(localmaxpos,localmax,'go')
                 axis(tmp)
-                peakvalx.append(localmaxpos)
-                peakvaly.append(localmax)
+                peakvalx.append(float(localmaxpos))
+                peakvaly.append(float(localmax))
                 means.append(abs(localmaxpos-pold))
             pold=p
             p=p+(sum(means)/len(means))
@@ -243,34 +226,38 @@ class MainFrame(wx.Frame):
                 tmp=axis()
                 plot(localmaxpos,localmax,'go')
                 axis(tmp)
-                peakvalx.append(localmaxpos)
-                peakvaly.append(localmax)
+                peakvalx.append(float(localmaxpos))
+                peakvaly.append(float(localmax))
                 means.append(abs(localmaxpos-pold))
             pold=p
             p=p-(sum(means)/len(means))
 
-        peaks=zeros((len(peakvalx),2))
-        peaks[:,0]=peakvalx
-        peaks[:,1]=peakvaly
+        # calculate centroid
+        c=0
+        for ii in range(0,len(self.yth)):
+            c=c+self.x[ii]*self.yth[ii]
 
-        # # calculate centroid
-        # c=0
-        # for ii in range(0,len(y)):
-        #     c=c+x[ii]*self.yth[ii]
+        c=c/self.yth.sum()
 
-        # c=c/yth.sum()
-        # self.textCtrlData.AppendText(\
-        #     "%.2f, %.2f, %.2e, %.2f\n" % \
-        #         (self.low,self.high,self.thres,c))
-        # self.textCtrlData.MarkDirty()
-        # self.hl2.remove()
-        # self.hl3.remove()
-        # self.hl4=axvline(x=c,color='c')
-        # tmp=axis()
-        # axvspan(low,high,alpha=0.1,color='k')
-        # axis(tmp)
-        # draw()
+        # add fragment to self.data
+        
+        self.data.append({'low':float(self.low),\
+                              'high':float(self.high),\
+                              'thres':float(self.thres),\
+                              'centroid':float(c),\
+                              'charge':0.0,\
+                              'peaks':[peakvalx,peakvaly]})
 
+        self.hl2.remove()
+        self.hl3.remove()
+        self.hl4=axvline(x=c,color='c')
+        tmp=axis()
+        axvspan(self.low,self.high,alpha=0.1,color='k')
+        axis(tmp)
+        draw()
+
+        self.data_changed=True
+        self._updateListCtrl()
 
 
     def saveData(self, event): # wxGlade: MainFrame.<event_handler>
@@ -284,16 +271,15 @@ class MainFrame(wx.Frame):
                     wx.YES_NO) == wx.NO:
                 return
         
-        self.textCtrlData.SaveFile(self.paramfile)        
-        df=file(self.peakfile,'wb')
-        pickle.dump(self.peaks,df)
+        df=file(self.paramfile,'w')
+        yaml.dump(self.data,df)
         df.close()
+
+        self.data_changed=False
         
     def onExit(self, event): # wxGlade: MainFrame.<event_handler>
-        if self.textCtrlData.IsModified():
-            if wx.MessageBox(\
-                "Parameters have changed, save?","Save", wx.YES_NO) == wx.YES:
-                self.textCtrlData.SaveFile(self.paramfile)
+        if self.data_changed:
+            self.saveData(1)
 
         close()
         self.Destroy()
@@ -327,6 +313,26 @@ class MainFrame(wx.Frame):
         localmaxpos=take(localx,find(localy==localy.max()))[0]
         
         return (localmaxpos,localmax)
+
+    def _updateListCtrl(self):
+        self.listctrlData.DeleteAllItems()
+
+        self.listctrlData.InsertColumn(0,'Low')
+        self.listctrlData.InsertColumn(1,'High')
+        self.listctrlData.InsertColumn(2,'Thres')
+        self.listctrlData.InsertColumn(3,'Centr')
+        self.listctrlData.InsertColumn(4,'Charge')
+
+        if len(self.data)>0:
+            for item in self.data:
+                ind=self.listctrlData.InsertStringItem(0,'%.1f' % item['low'])
+                print(ind)
+                self.listctrlData.SetStringItem(ind,1,'%.1f' % item['high'])
+                self.listctrlData.SetStringItem(ind,2,'%.1e' % item['thres'])
+                self.listctrlData.SetStringItem(ind,3,'%.1f' % item['centroid'])
+                self.listctrlData.SetStringItem(ind,4,'%.1f' % item['charge'])
+
+            print(self.data)
 
 # end of class MainFrame
 
