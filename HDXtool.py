@@ -186,17 +186,17 @@ class MainFrame(wx.Frame):
         self.thres=None
 
         # pick threshold and left and right limit
-        pos=ginput(1)
+        pos=ginput(1,timeout=0)
         self.thres=pos[0][1]
         self.hl1=axhline(y=self.thres,color='r')
         draw()
 
-        pos=ginput(1)
+        pos=ginput(1,timeout=0)
         self.low=pos[0][0]
         self.hl2=axvline(x=self.low,color='g')
         draw()
 
-        pos=ginput(1)
+        pos=ginput(1,timeout=0)
         self.high=pos[0][0]
         self.hl3=axvline(x=self.high,color='g')
         draw()
@@ -344,7 +344,7 @@ class MainFrame(wx.Frame):
         ii=axis()
         # XXX this is a bit dodgy
         delta=(ii[1]-ii[0])/200.0
-        pos=ginput(1)
+        pos=ginput(1,timeout=0)
         pos=pos[0]
         (localmaxpos,localmax)=self._localpeak(pos,x,y,delta)
 
