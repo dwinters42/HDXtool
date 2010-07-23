@@ -30,8 +30,7 @@ from pylab import *
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         
-        self.ids={'roi':wx.ID_HIGHEST+1,'suggest':wx.ID_HIGHEST+2, \
-                      'select':wx.ID_HIGHEST+3}
+        self.ids={'roi':wx.ID_HIGHEST+1,'pick':wx.ID_HIGHEST+2}
 
         # begin wxGlade: MainFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
@@ -46,13 +45,14 @@ class MainFrame(wx.Frame):
         wxglade_tmp_menu.Append(wx.ID_EXIT, "Quit", "", wx.ITEM_NORMAL)
         self.frame_1_menubar.Append(wxglade_tmp_menu, "File")
         wxglade_tmp_menu = wx.Menu()
-        wxglade_tmp_menu.Append(wx.ID_FORWARD, "Next Fragment", "", wx.ITEM_NORMAL)
+        wxglade_tmp_menu.Append(self.ids['roi'], "set ROI", "", wx.ITEM_NORMAL)
         self.frame_1_menubar.Append(wxglade_tmp_menu, "Fragment")
         wxglade_tmp_menu = wx.Menu()
         wxglade_tmp_menu.Append(wx.ID_ABOUT, "Info", "", wx.ITEM_NORMAL)
         self.frame_1_menubar.Append(wxglade_tmp_menu, "About")
         self.SetMenuBar(self.frame_1_menubar)
         # Menu Bar end
+        self.frame_1_statusbar = self.CreateStatusBar(1, 0)
         
         # Tool Bar
         self.frame_1_toolbar = wx.ToolBar(self, -1, style=wx.TB_HORIZONTAL|wx.TB_TEXT)
@@ -60,11 +60,9 @@ class MainFrame(wx.Frame):
         self.frame_1_toolbar.AddLabelTool(wx.ID_OPEN, "Load", (wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
         self.frame_1_toolbar.AddLabelTool(wx.ID_SAVE, "Save", (wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
         self.frame_1_toolbar.AddLabelTool(self.ids['roi'], "ROI", (wx.ArtProvider.GetBitmap(wx.ART_GO_FORWARD, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
-        self.frame_1_toolbar.AddLabelTool(self.ids['suggest'], "Suggest", (wx.ArtProvider.GetBitmap(wx.ART_QUESTION, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
-        self.frame_1_toolbar.AddLabelTool(self.ids['select'], "Select", (wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
+        self.frame_1_toolbar.AddLabelTool(self.ids['pick'], "Pick Peaks", (wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
         # Tool Bar end
         self.textCtrlData = wx.TextCtrl(self.panel_1, -1, "", style=wx.TE_MULTILINE)
-        self.frame_1_statusbar = self.CreateStatusBar(1, 0)
 
         self.__set_properties()
         self.__do_layout()
@@ -72,12 +70,12 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_MENU, self.loadData, id=wx.ID_OPEN)
         self.Bind(wx.EVT_MENU, self.saveData, id=wx.ID_SAVE)
         self.Bind(wx.EVT_MENU, self.onExit, id=wx.ID_EXIT)
+        self.Bind(wx.EVT_MENU, self.setROI, id=self.ids['roi'])
         self.Bind(wx.EVT_MENU, self.printInfo, id=wx.ID_ABOUT)
         self.Bind(wx.EVT_TOOL, self.loadData, id=wx.ID_OPEN)
         self.Bind(wx.EVT_TOOL, self.saveData, id=wx.ID_SAVE)
         self.Bind(wx.EVT_TOOL, self.setROI, id=self.ids['roi'])
-        self.Bind(wx.EVT_TOOL, self.suggestPeaks, id=self.ids['suggest'])
-        self.Bind(wx.EVT_TOOL, self.selectPeaks, id=self.ids['select'])
+        self.Bind(wx.EVT_TOOL, self.pickPeaks, id=self.ids['pick'])
         # end wxGlade
         
         self.dfile=''
@@ -97,13 +95,13 @@ class MainFrame(wx.Frame):
     def __set_properties(self):
         # begin wxGlade: MainFrame.__set_properties
         self.SetTitle("HDXtool")
-        self.frame_1_toolbar.Realize()
-        self.textCtrlData.SetMinSize((278, 365))
         self.frame_1_statusbar.SetStatusWidths([-1])
         # statusbar fields
         frame_1_statusbar_fields = ["Ready"]
         for i in range(len(frame_1_statusbar_fields)):
             self.frame_1_statusbar.SetStatusText(frame_1_statusbar_fields[i], i)
+        self.frame_1_toolbar.Realize()
+        self.textCtrlData.SetMinSize((278, 365))
         # end wxGlade
 
     def __do_layout(self):
@@ -209,7 +207,7 @@ class MainFrame(wx.Frame):
             else:
                 self.yth[ii]=self.y[ii]
 
-    def suggestPeaks(self, event): # wxGlade: MainFrame.<event_handler>
+    def pickPeaks(self, event): # wxGlade: MainFrame.<event_handler>
         # let the user select two peaks
         (x1,y1)=self._pickpeak(self.x,self.yth)
         (x2,y2)=self._pickpeak(self.x,self.yth)
@@ -255,25 +253,25 @@ class MainFrame(wx.Frame):
         peaks[:,0]=peakvalx
         peaks[:,1]=peakvaly
 
+        # # calculate centroid
+        # c=0
+        # for ii in range(0,len(y)):
+        #     c=c+x[ii]*self.yth[ii]
 
-    def selectPeaks(self, event): # wxGlade: MainFrame.<event_handler>
-        # calculate centroid
-        c=0
-        for ii in range(0,len(y)):
-            c=c+x[ii]*self.yth[ii]
+        # c=c/yth.sum()
+        # self.textCtrlData.AppendText(\
+        #     "%.2f, %.2f, %.2e, %.2f\n" % \
+        #         (self.low,self.high,self.thres,c))
+        # self.textCtrlData.MarkDirty()
+        # self.hl2.remove()
+        # self.hl3.remove()
+        # self.hl4=axvline(x=c,color='c')
+        # tmp=axis()
+        # axvspan(low,high,alpha=0.1,color='k')
+        # axis(tmp)
+        # draw()
 
-        c=c/yth.sum()
-        self.textCtrlData.AppendText(\
-            "%.2f, %.2f, %.2e, %.2f\n" % \
-                (self.low,self.high,self.thres,c))
-        self.textCtrlData.MarkDirty()
-        self.hl2.remove()
-        self.hl3.remove()
-        self.hl4=axvline(x=c,color='c')
-        tmp=axis()
-        axvspan(low,high,alpha=0.1,color='k')
-        axis(tmp)
-        draw()
+
 
     def saveData(self, event): # wxGlade: MainFrame.<event_handler>
         if self.dfile == '':
@@ -329,7 +327,6 @@ class MainFrame(wx.Frame):
         localmaxpos=take(localx,find(localy==localy.max()))[0]
         
         return (localmaxpos,localmax)
-
 
 # end of class MainFrame
 
