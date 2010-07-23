@@ -87,6 +87,9 @@ class MainFrame(wx.Frame):
         self.high=None
         self.thres=None
         self.hl1=None
+        self.hl2=None
+        self.hl3=None
+        self.hl4=None
 
         self.data=[]
         self.data_changed=False
@@ -130,6 +133,8 @@ class MainFrame(wx.Frame):
             plot(self.xdata,self.ydata)
 
             # load the file with the parameters
+            self.data=[]
+
             self.paramfile=os.path.splitext(self.dfile)[0]+"_params.yaml"
 
             if os.access(self.paramfile, os.R_OK | os.W_OK):
@@ -140,26 +145,33 @@ class MainFrame(wx.Frame):
                     wx.MessageBox(\
                         "Cannot read peak data file!","Warning", wx.OK)
                 df.close()
-                self._updateListCtrl()
 
                 for item in self.data:
                     axvspan(item['low'],item['high'],alpha=0.1,color='k')
 
+            self._updateListCtrl()
             show()
             draw()
             self.data_changed=False
    
     def setROI(self, event): # wxGlade: MainFrame.<event_handler>
-        # XXX clear variables
-        
         if self.dfile == '':
             dlg=wx.MessageBox('No data loaded!','Error', wx.ID_OK)
             return
 
-        if self.hl1 is not None:
+        try:
             self.hl1.remove()
+            self.hl2.remove()
+            self.hl3.remove()
             self.hl4.remove()
             draw()
+        except:
+            pass
+
+        # clear variables
+        self.high=None
+        self.low=None
+        self.thres=None
 
         # pick threshold and left and right limit
         pos=ginput(1)
