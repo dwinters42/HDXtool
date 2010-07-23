@@ -32,7 +32,8 @@ from pylab import *
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         
-        self.ids={'roi':wx.ID_HIGHEST+1,'pick':wx.ID_HIGHEST+2}
+        self.ids={'roi':wx.ID_HIGHEST+1,'suggest':wx.ID_HIGHEST+2,\
+                      'manual':wx.ID_HIGHEST+3,'accept':wx.ID_HIGHEST+4}
 
         # begin wxGlade: MainFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
@@ -62,7 +63,9 @@ class MainFrame(wx.Frame):
         self.frame_1_toolbar.AddLabelTool(wx.ID_OPEN, "Load", (wx.ArtProvider.GetBitmap(wx.ART_FILE_OPEN, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
         self.frame_1_toolbar.AddLabelTool(wx.ID_SAVE, "Save", (wx.ArtProvider.GetBitmap(wx.ART_FILE_SAVE, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
         self.frame_1_toolbar.AddLabelTool(self.ids['roi'], "ROI", (wx.ArtProvider.GetBitmap(wx.ART_GO_FORWARD, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
-        self.frame_1_toolbar.AddLabelTool(self.ids['pick'], "Pick Peaks", (wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
+        self.frame_1_toolbar.AddLabelTool(self.ids['suggest'], "Suggest", (wx.ArtProvider.GetBitmap(wx.ART_GO_FORWARD, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
+        self.frame_1_toolbar.AddLabelTool(self.ids['manual'], "Manual", (wx.ArtProvider.GetBitmap(wx.ART_GO_FORWARD, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
+        self.frame_1_toolbar.AddLabelTool(self.ids['accept'], "Accept", (wx.ArtProvider.GetBitmap(wx.ART_TICK_MARK, wx.ART_TOOLBAR)), wx.NullBitmap, wx.ITEM_NORMAL, "", "")
         # Tool Bar end
         self.listctrlData = wx.ListCtrl(self.panel_1, -1, style=wx.LC_REPORT|wx.LC_AUTOARRANGE|wx.LC_SINGLE_SEL|wx.LC_HRULES|wx.LC_VRULES|wx.SUNKEN_BORDER)
 
@@ -77,7 +80,9 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.loadData, id=wx.ID_OPEN)
         self.Bind(wx.EVT_TOOL, self.saveData, id=wx.ID_SAVE)
         self.Bind(wx.EVT_TOOL, self.setROI, id=self.ids['roi'])
-        self.Bind(wx.EVT_TOOL, self.pickPeaks, id=self.ids['pick'])
+        self.Bind(wx.EVT_TOOL, self.suggestPeaks, id=self.ids['suggest'])
+        self.Bind(wx.EVT_TOOL, self.manualPeaks, id=self.ids['manual'])
+        self.Bind(wx.EVT_TOOL, self.acceptPeaks, id=self.ids['accept'])
         # end wxGlade
 
         self.dfile=''
@@ -92,6 +97,11 @@ class MainFrame(wx.Frame):
         self.hl1=None
         self.hl2=None
         self.hl3=None
+
+        self.peakvalx=None
+        self.peakvaly=None
+        self.peaks_sel=None
+        self.centroid_line=None
 
         self.data=[]
         self.data_changed=False
@@ -203,11 +213,16 @@ class MainFrame(wx.Frame):
             else:
                 self.yth[ii]=self.y[ii]
 
-    def pickPeaks(self, event): # wxGlade: MainFrame.<event_handler>
-
+    def suggestPeaks(self, event): # wxGlade: MainFrame.<event_handler>
         if self.low is None or self.high is None or self.thres is None:
             dlg=wx.MessageBox('No ROI selected!','Error', wx.ID_OK)
             return
+
+        try:
+            self.peaks_sel[0].remove()
+            self.centroid_line.remove()
+        except:
+            pass
 
         # let the user select two peaks
         (x1,y1)=self._pickpeak(self.x,self.yth)
@@ -218,8 +233,8 @@ class MainFrame(wx.Frame):
         ### suggest peaks ###
         # start from startpeak, go to the right until self.high and mark
         # peaks, then do the same to the left
-        peakvalx=[float(x1)]
-        peakvaly=[float(y1)]
+        self.peakvalx=[float(x1)]
+        self.peakvaly=[float(y1)]
         means=[meandist]
         p=x1+meandist
         pold=x1
@@ -227,8 +242,8 @@ class MainFrame(wx.Frame):
         while p<self.high:
             (localmaxpos,localmax)=self._localpeak((p,0),self.x,self.yth,delta)
             if localmax>0:
-                peakvalx.append(float(localmaxpos))
-                peakvaly.append(float(localmax))
+                self.peakvalx.append(float(localmaxpos))
+                self.peakvaly.append(float(localmax))
                 means.append(abs(localmaxpos-pold))
             pold=p
             p=p+(sum(means)/len(means))
@@ -238,14 +253,14 @@ class MainFrame(wx.Frame):
         while p>self.low:
             (localmaxpos,localmax)=self._localpeak((p,0),self.x,self.yth,delta)
             if localmax>0:
-                peakvalx.append(float(localmaxpos))
-                peakvaly.append(float(localmax))
+                self.peakvalx.append(float(localmaxpos))
+                self.peakvaly.append(float(localmax))
                 means.append(abs(localmaxpos-pold))
             pold=p
             p=p-(sum(means)/len(means))
 
         tmp=axis()
-        p_sugg=plot(peakvalx,peakvaly,'go')
+        self.peaks_sel=plot(self.peakvalx,self.peakvaly,'go')
         axis(tmp)
 
         # if wx.MessageBox("Take suggested peaks?","Question", \
@@ -259,33 +274,42 @@ class MainFrame(wx.Frame):
         for ii in range(0,len(self.yth)):
             c=c+self.x[ii]*self.yth[ii]
 
-        c=c/self.yth.sum()
-        centroid_line=axvline(x=c,color='c')
+        self.centroid=c/self.yth.sum()
+        self.centroid_line=axvline(x=self.centroid,color='c')
         draw()
 
-        self._updateListCtrl()
 
-        # see if the user wants to save the peaks
-        if wx.MessageBox("Save peaks?","Question", wx.YES_NO) == wx.YES:
-            self.data.append({'low':float(self.low),\
+    def manualPeaks(self, event): # wxGlade: MainFrame.<event_handler>
+        print "Event handler `manualPeaks' not implemented"
+        event.Skip()
+
+    def acceptPeaks(self, event): # wxGlade: MainFrame.<event_handler>
+        if self.low is None or self.high is None or self.thres is None:
+            dlg=wx.MessageBox('No ROI selected!','Error', wx.ID_OK)
+            return
+
+        if self.peakvalx is None or self.peakvaly is None:
+            dlg=wx.MessageBox('No peaks selected!','Error', wx.ID_OK)
+            return
+
+        self.data.append({'low':float(self.low),\
                               'high':float(self.high),\
                               'thres':float(self.thres),\
-                              'centroid':float(c),\
+                              'centroid':float(self.centroid),\
                               'charge':0.0,\
-                              'peaks':[peakvalx,peakvaly]})
+                              'peaks':[self.peakvalx,self.peakvaly]})
 
-            tmp=axis()
-            axvspan(self.low,self.high,alpha=0.1,color='k')
-            axis(tmp)
-            draw()
+        tmp=axis()
+        axvspan(self.low,self.high,alpha=0.1,color='k')
+        axis(tmp)
+        
+        self.data_changed=True
+        self._updateListCtrl()
 
-            self.data_changed=True
-            self._updateListCtrl()
-        else:
-            p_sugg[0].remove()
-
-        centroid_line.remove()
+        self.centroid_line.remove()
+        self.peaks_sel[0].set_color('m')
         draw()
+
         
     def saveData(self, event): # wxGlade: MainFrame.<event_handler>
         if self.data_changed == True:
@@ -351,6 +375,7 @@ class MainFrame(wx.Frame):
                 self.listctrlData.SetStringItem(ind,2,'%.1e' % item['thres'])
                 self.listctrlData.SetStringItem(ind,3,'%.1f' % item['centroid'])
                 self.listctrlData.SetStringItem(ind,4,'%.1f' % item['charge'])
+
 
 # end of class MainFrame
 
