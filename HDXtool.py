@@ -23,6 +23,9 @@ import wx
 # begin wxGlade: extracode
 # end wxGlade
 
+import matplotlib
+matplotlib.use('WxAgg')
+
 import os, yaml
 from pylab import *
 
@@ -89,7 +92,6 @@ class MainFrame(wx.Frame):
         self.hl1=None
         self.hl2=None
         self.hl3=None
-        self.hl4=None
 
         self.data=[]
         self.data_changed=False
@@ -163,10 +165,10 @@ class MainFrame(wx.Frame):
             self.hl1.remove()
             self.hl2.remove()
             self.hl3.remove()
-            self.hl4.remove()
-            draw()
         except:
             pass
+
+        draw()
 
         # clear variables
         self.high=None
@@ -202,7 +204,10 @@ class MainFrame(wx.Frame):
                 self.yth[ii]=self.y[ii]
 
     def pickPeaks(self, event): # wxGlade: MainFrame.<event_handler>
-        # XXX clear variables
+
+        if self.low is None or self.high is None or self.thres is None:
+            dlg=wx.MessageBox('No ROI selected!','Error', wx.ID_OK)
+            return
 
         # let the user select two peaks
         (x1,y1)=self._pickpeak(self.x,self.yth)
@@ -210,6 +215,7 @@ class MainFrame(wx.Frame):
         meandist=(max(x1,x2)-min(x1,x2))
         delta=meandist*0.01
 
+        ### suggest peaks ###
         # start from startpeak, go to the right until self.high and mark
         # peaks, then do the same to the left
         peakvalx=[float(x1)]
@@ -221,9 +227,6 @@ class MainFrame(wx.Frame):
         while p<self.high:
             (localmaxpos,localmax)=self._localpeak((p,0),self.x,self.yth,delta)
             if localmax>0:
-                tmp=axis()
-                plot(localmaxpos,localmax,'go')
-                axis(tmp)
                 peakvalx.append(float(localmaxpos))
                 peakvaly.append(float(localmax))
                 means.append(abs(localmaxpos-pold))
@@ -235,14 +238,21 @@ class MainFrame(wx.Frame):
         while p>self.low:
             (localmaxpos,localmax)=self._localpeak((p,0),self.x,self.yth,delta)
             if localmax>0:
-                tmp=axis()
-                plot(localmaxpos,localmax,'go')
-                axis(tmp)
                 peakvalx.append(float(localmaxpos))
                 peakvaly.append(float(localmax))
                 means.append(abs(localmaxpos-pold))
             pold=p
             p=p-(sum(means)/len(means))
+
+        tmp=axis()
+        p_sugg=plot(peakvalx,peakvaly,'go')
+        axis(tmp)
+
+        # if wx.MessageBox("Take suggested peaks?","Question", \
+        #             wx.YES_NO) == wx.NO:
+        #     # the user wants to select them manually
+        #     p=ginput(0)
+        #     # XXX
 
         # calculate centroid
         c=0
@@ -250,44 +260,46 @@ class MainFrame(wx.Frame):
             c=c+self.x[ii]*self.yth[ii]
 
         c=c/self.yth.sum()
+        centroid_line=axvline(x=c,color='c')
+        draw()
 
-        # add fragment to self.data
-        
-        self.data.append({'low':float(self.low),\
+        self._updateListCtrl()
+
+        # see if the user wants to save the peaks
+        if wx.MessageBox("Save peaks?","Question", wx.YES_NO) == wx.YES:
+            self.data.append({'low':float(self.low),\
                               'high':float(self.high),\
                               'thres':float(self.thres),\
                               'centroid':float(c),\
                               'charge':0.0,\
                               'peaks':[peakvalx,peakvaly]})
 
-        self.hl2.remove()
-        self.hl3.remove()
-        self.hl4=axvline(x=c,color='c')
-        tmp=axis()
-        axvspan(self.low,self.high,alpha=0.1,color='k')
-        axis(tmp)
+            tmp=axis()
+            axvspan(self.low,self.high,alpha=0.1,color='k')
+            axis(tmp)
+            draw()
+
+            self.data_changed=True
+            self._updateListCtrl()
+        else:
+            p_sugg[0].remove()
+
+        centroid_line.remove()
         draw()
-
-        self.data_changed=True
-        self._updateListCtrl()
-
-
-    def saveData(self, event): # wxGlade: MainFrame.<event_handler>
-        if self.dfile == '':
-            dlg=wx.MessageBox('No data loaded!','Error', wx.ID_OK)
-            return
-
-        if os.access(self.paramfile,os.R_OK | os.W_OK):
-            if wx.MessageBox(\
-                "Data files exist, overwrite?","Overwrite", \
-                    wx.YES_NO) == wx.NO:
-                return
         
-        df=file(self.paramfile,'w')
-        yaml.dump(self.data,df)
-        df.close()
+    def saveData(self, event): # wxGlade: MainFrame.<event_handler>
+        if self.data_changed == True:
+            if os.access(self.paramfile,os.R_OK | os.W_OK):
+                if wx.MessageBox(\
+                    "Data files exist, overwrite?","Overwrite", \
+                        wx.YES_NO) == wx.NO:
+                    return
+        
+            df=file(self.paramfile,'w')
+            yaml.dump(self.data,df)
+            df.close()
 
-        self.data_changed=False
+            self.data_changed=False
         
     def onExit(self, event): # wxGlade: MainFrame.<event_handler>
         if self.data_changed:
@@ -312,9 +324,6 @@ class MainFrame(wx.Frame):
         pos=pos[0]
         (localmaxpos,localmax)=self._localpeak(pos,x,y,delta)
 
-        tmp=axis()
-        plot(localmaxpos,localmax,'go')
-        axis(tmp)
         return (localmaxpos,localmax)
 
     def _localpeak(self,pos,x,y,delta):
