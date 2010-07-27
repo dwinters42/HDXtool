@@ -26,9 +26,12 @@ import wx
 import matplotlib
 matplotlib.use('WxAgg')
 
-import os, yaml
+import os, yaml, time
 from pylab import *
 import scipy.optimize
+
+# set to True to show the fitting in progress
+verbose=True
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -402,7 +405,6 @@ class MainFrame(wx.Frame):
         localmax=localy.max()
         localmaxpos=take(localx,find(localy==localy.max()))[0]
 
-        xx=arange(min(localx),max(localx),0.0001)
         # then, fit a lorentzian in a smaller window delta2 around the
         # maximum
         delta2=0.004
@@ -410,7 +412,8 @@ class MainFrame(wx.Frame):
         localx=take(x,find(abs(x-localmaxpos) < delta2))
         localy=take(y,find(abs(x-localmaxpos) < delta2))
 
-        #fitfunc = lambda p, x: p[0]*exp(-(x-p[1])**2/(2.0*p[2]**2))
+        xx=arange(min(localx),max(localx),0.0001)
+
         fitfunc = lambda p, x: p[0]/(1+((x-p[1])/p[2])**2)
         errfunc = lambda p, x, y: fitfunc(p,x)-y
 
@@ -418,13 +421,22 @@ class MainFrame(wx.Frame):
         p1, success = scipy.optimize.leastsq(errfunc, p0, args=(localx,localy))
 
         print(p1)
-        figure(2)
-        clf()
-        plot(localx,localy,'ro')
-        plot(xx,fitfunc(p1,xx),'b-')
-        grid(True)
-        figure(1)
-        
+
+        if verbose:
+            figure(2)
+            clf()
+            plot(localx,localy,'ro')
+            plot(xx,fitfunc(p1,xx),'b-')
+            grid(True)
+            draw()
+
+            figure(1)
+            p=plot(localmaxpos,localmax,'co')
+            draw()
+            time.sleep(2.0)
+            p[0].remove()
+            draw()
+
         return (localmaxpos,localmax)
 
     def _updateListCtrl(self):
