@@ -31,7 +31,7 @@ from pylab import *
 import scipy.optimize
 
 # set to True to show the fitting in progress
-verbose=False
+verbose=True
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -102,10 +102,12 @@ class MainFrame(wx.Frame):
         self.hl2=None
         self.hl3=None
 
+        # peaks
         self.peaklist=[]
         self.peaks_sel=None
         self.centroid_line=None
 
+        # fragment data
         self.data=[]
         self.data_changed=False
 
@@ -262,7 +264,7 @@ class MainFrame(wx.Frame):
         pold=x1
 
         while p>self.low:
-            localpeak=self._localpeak((p,0),self.x,self.yth,delta)
+            localpeak=self._localpeak((p,0),self.x,self.y,delta)
             if localpeak[1]>0:
                 localpeaklist.append(localpeak)
                 means.append(abs(localpeak[0]-pold))
@@ -290,6 +292,11 @@ class MainFrame(wx.Frame):
         except:
             pass
         draw()
+
+        try:
+            self.centroid_line.remove()
+        except:
+            pass
 
         self.peaklist=[]
         localpeaklist=[]
@@ -329,12 +336,14 @@ class MainFrame(wx.Frame):
             dlg=wx.MessageBox('No peaks selected!','Error', wx.ID_OK)
             return
 
+        # calculate charge state
+        charge=self._chargestate(self.peaklist)
 
         self.data.append({'low':float(self.low),\
                               'high':float(self.high),\
                               'thres':float(self.thres),\
                               'centroid':float(self.centroid),\
-                              'charge':0.0,\
+                              'charge':float(charge),\
                               'peaks':self.peaklist.tolist()})
 
         tmp=axis()
@@ -400,7 +409,7 @@ class MainFrame(wx.Frame):
 
         # then, fit a lorentzian in a smaller window delta2 around the
         # maximum
-        delta2=0.004
+        delta2=0.0005+localmax*2e-10
 
         localx=take(x,find(abs(x-localmaxpos) < delta2))
         localy=take(y,find(abs(x-localmaxpos) < delta2))
@@ -422,9 +431,11 @@ class MainFrame(wx.Frame):
             draw()
 
             figure(1)
+            tmp=axis()
             p=plot(localmaxpos,localmax,'co')
+            axis(tmp)
             draw()
-            time.sleep(2.0)
+            time.sleep(1.0)
             p[0].remove()
             draw()
 
@@ -454,6 +465,12 @@ class MainFrame(wx.Frame):
 
         return c/y.sum()
 
+    def _chargestate(self,localpeaklist):
+        meandist=[]
+        for ii in range(len(localpeaklist[:,0])-1):
+            meandist.append(localpeaklist[ii,0]-localpeaklist[ii+1,0])
+
+        return 1.0/mean(meandist)
 
     def _updateListCtrl(self):
         self.listctrlData.DeleteAllItems()
@@ -470,7 +487,7 @@ class MainFrame(wx.Frame):
                 self.listctrlData.SetStringItem(ind,1,'%.1f' % item['high'])
                 self.listctrlData.SetStringItem(ind,2,'%.1e' % item['thres'])
                 self.listctrlData.SetStringItem(ind,3,'%.1f' % item['centroid'])
-                self.listctrlData.SetStringItem(ind,4,'%.1f' % item['charge'])
+                self.listctrlData.SetStringItem(ind,4,'%i' % round(item['charge']))
 
 
 # end of class MainFrame
