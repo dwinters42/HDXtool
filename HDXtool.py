@@ -31,7 +31,7 @@ from pylab import *
 import scipy.optimize
 
 # set to True to show the fitting in progress
-verbose=True
+verbose=False
 
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
@@ -102,8 +102,7 @@ class MainFrame(wx.Frame):
         self.hl2=None
         self.hl3=None
 
-        self.peakvalx=None
-        self.peakvaly=None
+        self.peaklist=[]
         self.peaks_sel=None
         self.centroid_line=None
 
@@ -233,42 +232,47 @@ class MainFrame(wx.Frame):
             pass
 
         # let the user select two peaks
-        (x1,y1)=self._pickpeak(self.x,self.yth)
-        (x2,y2)=self._pickpeak(self.x,self.yth)
+        localpeak1=self._pickpeak(self.x,self.yth)
+        x1=localpeak1[0]
+        y1=localpeak1[1]
+        localpeak2=self._pickpeak(self.x,self.yth)
+        x2=localpeak2[0]
         meandist=(max(x1,x2)-min(x1,x2))
         delta=meandist*0.05
 
         ### suggest peaks ###
         # start from startpeak, go to the right until self.high and mark
         # peaks, then do the same to the left
-        self.peakvalx=[float(x1)]
-        self.peakvaly=[float(y1)]
+        self.peaklist=[]
+        localpeaklist=[localpeak1]
         means=[meandist]
+
         p=x1+meandist
         pold=x1
 
         while p<self.high:
-            (localmaxpos,localmax)=self._localpeak((p,0),self.x,self.yth,delta)
-            if localmax>0:
-                self.peakvalx.append(float(localmaxpos))
-                self.peakvaly.append(float(localmax))
-                means.append(abs(localmaxpos-pold))
+            localpeak=self._localpeak((p,0),self.x,self.yth,delta)
+            if localpeak[1]>0:
+                localpeaklist.append(localpeak)
+                means.append(abs(localpeak[0]-pold))
             pold=p
             p=p+meandist
 
         p=x1-meandist
         pold=x1
+
         while p>self.low:
-            (localmaxpos,localmax)=self._localpeak((p,0),self.x,self.yth,delta)
-            if localmax>0:
-                self.peakvalx.append(float(localmaxpos))
-                self.peakvaly.append(float(localmax))
-                means.append(abs(localmaxpos-pold))
+            localpeak=self._localpeak((p,0),self.x,self.yth,delta)
+            if localpeak[1]>0:
+                localpeaklist.append(localpeak)
+                means.append(abs(localpeak[0]-pold))
             pold=p
             p=p-meandist
 
+        self.peaklist=vstack(localpeaklist)
+
         tmp=axis()
-        self.peaks_sel=plot(self.peakvalx,self.peakvaly,'go')
+        self.peaks_sel=plot(self.peaklist[:,0],self.peaklist[:,1],'go')
         axis(tmp)
 
         # calculate centroid
@@ -293,8 +297,8 @@ class MainFrame(wx.Frame):
             pass
         draw()
 
-        self.peakvalx=[]
-        self.peakvaly=[]
+        self.peaklist=[]
+        localpeaklist=[]
 
         # let the user click on the peaks, right click cancels last
         # point, middle button ends
@@ -305,16 +309,17 @@ class MainFrame(wx.Frame):
         delta=(ii[1]-ii[0])/200.0
 
         for p in d:
-            x,y=self._localpeak(p,self.x,self.yth,delta)
-            self.peakvalx.append(x)
-            self.peakvaly.append(y)
+            localpeak=self._localpeak(p,self.x,self.yth,delta)
+            localpeaklist.append(localpeak)
         
+        self.peaklist=vstack(localpeaklist)
+
         tmp=axis()
         try:
             self.peaks_sel[0].remove()
         except:
             pass
-        self.peaks_sel=plot(self.peakvalx,self.peakvaly,'go')
+        self.peaks_sel=plot(self.peaklist[:,0],self.peaklist[:,1],'go')
         axis(tmp)
 
         # calculate centroid
@@ -326,23 +331,22 @@ class MainFrame(wx.Frame):
         self.centroid_line=axvline(x=self.centroid,color='c')
         draw()
         
-
-
     def acceptPeaks(self, event): # wxGlade: MainFrame.<event_handler>
         if self.low is None or self.high is None or self.thres is None:
             dlg=wx.MessageBox('No ROI selected!','Error', wx.ID_OK)
             return
 
-        if self.peakvalx is None or self.peakvaly is None:
+        if len(self.peaklist) == 0:
             dlg=wx.MessageBox('No peaks selected!','Error', wx.ID_OK)
             return
+
 
         self.data.append({'low':float(self.low),\
                               'high':float(self.high),\
                               'thres':float(self.thres),\
                               'centroid':float(self.centroid),\
                               'charge':0.0,\
-                              'peaks':[self.peakvalx,self.peakvaly]})
+                              'peaks':self.peaklist.tolist()})
 
         tmp=axis()
         axvspan(self.low,self.high,alpha=0.1,color='k')
@@ -392,9 +396,9 @@ class MainFrame(wx.Frame):
         delta=(ii[1]-ii[0])/200.0
         pos=ginput(1,timeout=0)
         pos=pos[0]
-        (localmaxpos,localmax)=self._localpeak(pos,x,y,delta)
+        localpeak=self._localpeak(pos,x,y,delta)
 
-        return (localmaxpos,localmax)
+        return localpeak
 
     def _localpeak(self,pos,x,y,delta):
         # this is a two-stage peak finding
@@ -420,8 +424,6 @@ class MainFrame(wx.Frame):
         p0=[localmax,localmaxpos,0.03]
         p1, success = scipy.optimize.leastsq(errfunc, p0, args=(localx,localy))
 
-        print(p1)
-
         if verbose:
             figure(2)
             clf()
@@ -437,7 +439,7 @@ class MainFrame(wx.Frame):
             p[0].remove()
             draw()
 
-        return (localmaxpos,localmax)
+        return (localmaxpos,localmax,p1[0],p1[1],p1[2])
 
     def _updateListCtrl(self):
         self.listctrlData.DeleteAllItems()
