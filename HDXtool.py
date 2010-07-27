@@ -233,7 +233,7 @@ class MainFrame(wx.Frame):
         (x1,y1)=self._pickpeak(self.x,self.yth)
         (x2,y2)=self._pickpeak(self.x,self.yth)
         meandist=(max(x1,x2)-min(x1,x2))
-        delta=meandist*0.01
+        delta=meandist*0.05
 
         ### suggest peaks ###
         # start from startpeak, go to the right until self.high and mark
@@ -251,7 +251,7 @@ class MainFrame(wx.Frame):
                 self.peakvaly.append(float(localmax))
                 means.append(abs(localmaxpos-pold))
             pold=p
-            p=p+(sum(means)/len(means))
+            p=p+meandist
 
         p=x1-meandist
         pold=x1
@@ -262,7 +262,7 @@ class MainFrame(wx.Frame):
                 self.peakvaly.append(float(localmax))
                 means.append(abs(localmaxpos-pold))
             pold=p
-            p=p-(sum(means)/len(means))
+            p=p-meandist
 
         tmp=axis()
         self.peaks_sel=plot(self.peakvalx,self.peakvaly,'go')
