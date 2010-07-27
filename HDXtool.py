@@ -275,15 +275,9 @@ class MainFrame(wx.Frame):
         self.peaks_sel=plot(self.peaklist[:,0],self.peaklist[:,1],'go')
         axis(tmp)
 
-        # calculate centroid
-        c=0
-        for ii in range(0,len(self.yth)):
-            c=c+self.x[ii]*self.yth[ii]
-
-        self.centroid=c/self.yth.sum()
+        self.centroid=self._centroid(self.low,self.high,self.peaklist)
         self.centroid_line=axvline(x=self.centroid,color='c')
         draw()
-
 
     def manualPeaks(self, event): # wxGlade: MainFrame.<event_handler>
         if self.low is None or self.high is None or self.thres is None:
@@ -322,12 +316,7 @@ class MainFrame(wx.Frame):
         self.peaks_sel=plot(self.peaklist[:,0],self.peaklist[:,1],'go')
         axis(tmp)
 
-        # calculate centroid
-        c=0
-        for ii in range(0,len(self.yth)):
-            c=c+self.x[ii]*self.yth[ii]
-
-        self.centroid=c/self.yth.sum()
+        self.centroid=self._centroid(self.low,self.high,self.peaklist)
         self.centroid_line=axvline(x=self.centroid,color='c')
         draw()
         
@@ -440,6 +429,31 @@ class MainFrame(wx.Frame):
             draw()
 
         return (localmaxpos,localmax,p1[0],p1[1],p1[2])
+
+    def _centroid(self, low, high, localpeaklist):
+        c=0.0
+        step=1e-4
+        x=arange(low,high,step)
+        y=zeros(len(x))
+
+        # construct y values
+        for ii in range(len(localpeaklist[:,0])):
+            p=localpeaklist[ii,:]
+            y=y+p[2]/(1+((x-p[3])/p[4])**2)
+
+        if verbose:
+            figure(3)
+            clf()
+            plot(x,y)
+            draw()
+            figure(1)
+
+        # numerically calculate centroid
+        for ii in range(0,len(y)):
+            c=c+x[ii]*y[ii]
+
+        return c/y.sum()
+
 
     def _updateListCtrl(self):
         self.listctrlData.DeleteAllItems()
