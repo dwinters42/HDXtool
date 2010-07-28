@@ -145,6 +145,7 @@ class MainFrame(wx.Frame):
             d=loadtxt(self.dfile)
             self.xdata=d[:,0]
             self.ydata=d[:,1]
+            self.ydata=self.ydata/max(self.ydata)
             figure(1)
             clf();
             plot(self.xdata,self.ydata)
@@ -152,7 +153,7 @@ class MainFrame(wx.Frame):
             # load the file with the parameters
             self.data=[]
 
-            self.paramfile=os.path.splitext(self.dfile)[0]+"_params.yaml"
+            self.paramfile=os.path.splitext(self.dfile)[0]+"_params.yml"
 
             if os.access(self.paramfile, os.R_OK | os.W_OK):
                 df=file(self.paramfile,'r')
@@ -235,10 +236,10 @@ class MainFrame(wx.Frame):
 
         # let the user select two peaks
         localpeak1=self._pickpeak(self.x,self.yth)
-        x1=localpeak1[0]
+        x1=localpeak1[3]
         y1=localpeak1[1]
         localpeak2=self._pickpeak(self.x,self.yth)
-        x2=localpeak2[0]
+        x2=localpeak2[3]
         meandist=(max(x1,x2)-min(x1,x2))
         delta=meandist*0.05
 
@@ -247,29 +248,26 @@ class MainFrame(wx.Frame):
         # peaks, then do the same to the left
         self.peaklist=[]
         localpeaklist=[localpeak1]
-        means=[meandist]
 
         p=x1+meandist
-        pold=x1
+        i=2
 
         while p<self.high:
             localpeak=self._localpeak((p,0),self.x,self.yth,delta)
             if localpeak[1]>0:
                 localpeaklist.append(localpeak)
-                means.append(abs(localpeak[0]-pold))
-            pold=p
-            p=p+meandist
+            p=x1+meandist*i
+            i=i+1
 
         p=x1-meandist
-        pold=x1
-
+        i=2
+        
         while p>self.low:
             localpeak=self._localpeak((p,0),self.x,self.y,delta)
             if localpeak[1]>0:
                 localpeaklist.append(localpeak)
-                means.append(abs(localpeak[0]-pold))
-            pold=p
-            p=p-meandist
+            p=x1-meandist*i
+            i=i+1
 
         self.peaklist=vstack(localpeaklist)
 
@@ -409,7 +407,7 @@ class MainFrame(wx.Frame):
 
         # then, fit a lorentzian in a smaller window delta2 around the
         # maximum
-        delta2=0.0005+localmax*2e-10
+        delta2=0.007+localmax*0.15
 
         localx=take(x,find(abs(x-localmaxpos) < delta2))
         localy=take(y,find(abs(x-localmaxpos) < delta2))
@@ -424,6 +422,7 @@ class MainFrame(wx.Frame):
 
         if verbose:
             figure(2)
+            show()
             clf()
             plot(localx,localy,'ro')
             plot(xx,fitfunc(p1,xx),'b-')
@@ -454,6 +453,7 @@ class MainFrame(wx.Frame):
 
         if verbose:
             figure(3)
+            show()
             clf()
             plot(x,y)
             draw()
