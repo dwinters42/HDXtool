@@ -240,8 +240,8 @@ class MainFrame(wx.Frame):
         y1=localpeak1[1]
         localpeak2=self._pickpeak(self.x,self.yth)
         x2=localpeak2[3]
-        meandist=(max(x1,x2)-min(x1,x2))
-        delta=meandist*0.05
+        distance=(max(x1,x2)-min(x1,x2))
+        delta=distance*0.05
 
         ### suggest peaks ###
         # start from startpeak, go to the right until self.high and mark
@@ -249,24 +249,24 @@ class MainFrame(wx.Frame):
         self.peaklist=[]
         localpeaklist=[localpeak1]
 
-        p=x1+meandist
+        p=x1+distance
         i=2
 
         while p<self.high:
             localpeak=self._localpeak((p,0),self.x,self.yth,delta)
             if localpeak[1]>0:
                 localpeaklist.append(localpeak)
-            p=x1+meandist*i
+            p=x1+distance*i
             i=i+1
 
-        p=x1-meandist
+        p=x1-distance
         i=2
         
         while p>self.low:
             localpeak=self._localpeak((p,0),self.x,self.y,delta)
             if localpeak[1]>0:
                 localpeaklist.append(localpeak)
-            p=x1-meandist*i
+            p=x1-distance*i
             i=i+1
 
         self.peaklist=vstack(localpeaklist)
@@ -335,7 +335,7 @@ class MainFrame(wx.Frame):
             return
 
         # calculate charge state
-        charge=self._chargestate(self.peaklist)
+        charge=1.0/mean(diff(sort(self.peaklist[:,3])))
 
         self.data.append({'low':float(self.low),\
                               'high':float(self.high),\
@@ -464,13 +464,6 @@ class MainFrame(wx.Frame):
             c=c+x[ii]*y[ii]
 
         return c/y.sum()
-
-    def _chargestate(self,localpeaklist):
-        meandist=[]
-        for ii in range(len(localpeaklist[:,0])-1):
-            meandist.append(localpeaklist[ii,0]-localpeaklist[ii+1,0])
-
-        return 1.0/mean(meandist)
 
     def _updateListCtrl(self):
         self.listctrlData.DeleteAllItems()
