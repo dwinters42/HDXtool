@@ -272,7 +272,7 @@ class MainFrame(wx.Frame):
         self.peaklist=vstack(localpeaklist)
 
         tmp=axis()
-        self.peaks_sel=plot(self.peaklist[:,0],self.peaklist[:,1],'go')
+        self.peaks_sel=plot(self.peaklist[:,3],self.peaklist[:,2],'go')
         axis(tmp)
 
         self.centroid=self._centroid(self.low,self.high,self.peaklist)
@@ -318,7 +318,7 @@ class MainFrame(wx.Frame):
             self.peaks_sel[0].remove()
         except:
             pass
-        self.peaks_sel=plot(self.peaklist[:,0],self.peaklist[:,1],'go')
+        self.peaks_sel=plot(self.peaklist[:,3],self.peaklist[:,2],'go')
         axis(tmp)
 
         self.centroid=self._centroid(self.low,self.high,self.peaklist)
