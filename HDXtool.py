@@ -375,7 +375,7 @@ class MainFrame(wx.Frame):
         if self.data_changed:
             self.saveData(1)
 
-        close()
+        close('all')
         self.Destroy()
 
     def printInfo(self, event): # wxGlade: MainFrame.<event_handler>
