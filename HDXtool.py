@@ -36,8 +36,11 @@ verbose=True
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         
-        self.ids={'roi':wx.ID_HIGHEST+1,'suggest':wx.ID_HIGHEST+2,\
-                      'manual':wx.ID_HIGHEST+3,'accept':wx.ID_HIGHEST+4}
+        idnames=['roi','suggest','manual','accept','addlinecomment','deleteline']
+
+        self.ids = {}
+        for title in idnames:
+            self.ids[title] = wx.NewId()
 
         # begin wxGlade: MainFrame.__init__
         kwds["style"] = wx.DEFAULT_FRAME_STYLE
@@ -87,7 +90,16 @@ class MainFrame(wx.Frame):
         self.Bind(wx.EVT_TOOL, self.suggestPeaks, id=self.ids['suggest'])
         self.Bind(wx.EVT_TOOL, self.manualPeaks, id=self.ids['manual'])
         self.Bind(wx.EVT_TOOL, self.acceptPeaks, id=self.ids['accept'])
+        self.Bind(wx.EVT_LIST_ITEM_RIGHT_CLICK, self.rightClickLine, self.listctrlData)
         # end wxGlade
+
+        self.listctrlData.InsertColumn(0,'#', width=70)
+        self.listctrlData.InsertColumn(1,'Low', width=70)
+        self.listctrlData.InsertColumn(2,'High', width=70)
+        self.listctrlData.InsertColumn(3,'Thres', width=70)
+        self.listctrlData.InsertColumn(4,'Centr', width=70)
+        self.listctrlData.InsertColumn(5,'Charge', width=70)
+        self.listctrlData.InsertColumn(6,'Comment',width=150)
 
         self.dfile=''
         self.paramfile=''
@@ -122,7 +134,7 @@ class MainFrame(wx.Frame):
         for i in range(len(frame_1_statusbar_fields)):
             self.frame_1_statusbar.SetStatusText(frame_1_statusbar_fields[i], i)
         self.frame_1_toolbar.Realize()
-        self.listctrlData.SetMinSize((402, 426))
+        self.listctrlData.SetMinSize((570,500))
         # end wxGlade
 
     def __do_layout(self):
@@ -338,7 +350,8 @@ class MainFrame(wx.Frame):
                               'thres':float(self.thres),\
                               'centroid':float(self.centroid),\
                               'charge':float(charge),\
-                              'peaks':self.peaklist.tolist()})
+                              'peaks':self.peaklist.tolist(),\
+                              'comment':''})
 
         tmp=axis()
         axvspan(self.low,self.high,alpha=0.1,color='k')
@@ -381,6 +394,31 @@ class MainFrame(wx.Frame):
         info.SetCopyright("(c) 2010 Daniel Gruber")
         info.AddDeveloper("Daniel Gruber <daniel@tydirium.org>")
         wx.AboutBox(info)
+
+    def rightClickLine(self, event): # wxGlade: MainFrame.<event_handler>
+        self.item_clicked = int(event.GetText())
+        
+        menu = wx.Menu()
+        menu.Append(self.ids['addlinecomment'], 'Add comment' )
+        wx.EVT_MENU(menu, self.ids['addlinecomment'], self.addComment)
+        menu.Append(self.ids['deleteline'], 'Delete Line' )
+        wx.EVT_MENU(menu, self.ids['deleteline'], self.deleteLine)
+
+        self.panel_1.PopupMenu(menu,event.GetPoint())
+        menu.Destroy() 
+
+    def addComment(self,event):
+        dlg = wx.TextEntryDialog(self,'Enter comment:','Fragment comment', '')
+        if dlg.ShowModal() == wx.ID_OK:
+            self.data_changed=True
+            self.data[self.item_clicked]['comment']=dlg.GetValue()
+            self._updateListCtrl()
+        dlg.Destroy()
+
+    def deleteLine(self,event):
+        self.data.pop(self.item_clicked)
+        self._updateListCtrl()
+        self.data_changed=True
 
     def _pickpeak(self,x,y):
         ii=axis()
@@ -473,19 +511,14 @@ class MainFrame(wx.Frame):
     def _updateListCtrl(self):
         self.listctrlData.DeleteAllItems()
 
-        self.listctrlData.InsertColumn(0,'Low')
-        self.listctrlData.InsertColumn(1,'High')
-        self.listctrlData.InsertColumn(2,'Thres')
-        self.listctrlData.InsertColumn(3,'Centr')
-        self.listctrlData.InsertColumn(4,'Charge')
-
-        if len(self.data)>0:
-            for item in self.data:
-                ind=self.listctrlData.InsertStringItem(0,'%.1f' % item['low'])
-                self.listctrlData.SetStringItem(ind,1,'%.1f' % item['high'])
-                self.listctrlData.SetStringItem(ind,2,'%.1e' % item['thres'])
-                self.listctrlData.SetStringItem(ind,3,'%.1f' % item['centroid'])
-                self.listctrlData.SetStringItem(ind,4,'%i' % round(item['charge']))
+        for ii in range(len(self.data)):
+            ind=self.listctrlData.InsertStringItem(0,'%i' % ii)
+            self.listctrlData.SetStringItem(ind,1,'%.3f' % self.data[ii]['low'])
+            self.listctrlData.SetStringItem(ind,2,'%.3f' % self.data[ii]['high'])
+            self.listctrlData.SetStringItem(ind,3,'%.3f' % self.data[ii]['thres'])
+            self.listctrlData.SetStringItem(ind,4,'%.3f' % self.data[ii]['centroid'])
+            self.listctrlData.SetStringItem(ind,5,'%i' % round(self.data[ii]['charge']))
+            self.listctrlData.SetStringItem(ind,6, self.data[ii]['comment'])
 
 
 # end of class MainFrame
