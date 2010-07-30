@@ -1,0 +1,33 @@
+* Bugs
+
+** DONE charge state is wrong
+   CLOSED: [2010-07-30 Fri 11:45]
+   - CLOSING NOTE [2010-07-30 Fri 11:45]
+** DONE plot the fitted peak positions
+   CLOSED: [2010-07-30 Fri 11:45]
+   - CLOSING NOTE [2010-07-30 Fri 11:45]
+** DONE manual selection does not work in windows
+   CLOSED: [2010-07-30 Fri 12:58]
+   - CLOSING NOTE [2010-07-30 Fri 12:58] \\
+     apparently one needs a timeout, put it to 180s
+** DONE Ctrl-Q does not quit in Windows
+   CLOSED: [2010-07-30 Fri 13:06]
+   - CLOSING NOTE [2010-07-30 Fri 13:06]
+** DONE non-working stuff in menubar
+   CLOSED: [2010-07-30 Fri 13:06]
+   - CLOSING NOTE [2010-07-30 Fri 13:06]
+* Features
+
+** DONE column comments
+   CLOSED: [2010-07-30 Fri 11:45]
+   - CLOSING NOTE [2010-07-30 Fri 11:45]
+** DONE y-yth for fitting procesure
+   CLOSED: [2010-07-30 Fri 11:45]
+   - CLOSING NOTE [2010-07-30 Fri 11:45]
+** DONE delete entry
+   CLOSED: [2010-07-30 Fri 11:45]
+   - CLOSING NOTE [2010-07-30 Fri 11:46]
+** DONE export to clipboard
+   CLOSED: [2010-07-30 Fri 12:58]
+   - CLOSING NOTE [2010-07-30 Fri 12:58]
+** change fitting parameters
