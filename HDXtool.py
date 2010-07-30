@@ -36,7 +36,8 @@ verbose=True
 class MainFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         
-        idnames=['roi','suggest','manual','accept','addlinecomment','deleteline']
+        idnames=['roi','suggest','manual','accept','addlinecomment','deleteline',\
+                     'copytoclipboard']
 
         self.ids = {}
         for title in idnames:
@@ -404,6 +405,8 @@ class MainFrame(wx.Frame):
         wx.EVT_MENU(menu, self.ids['addlinecomment'], self.addComment)
         menu.Append(self.ids['deleteline'], 'Delete Line' )
         wx.EVT_MENU(menu, self.ids['deleteline'], self.deleteLine)
+        menu.Append(self.ids['copytoclipboard'], 'Copy all data to clipboard' )
+        wx.EVT_MENU(menu, self.ids['copytoclipboard'], self.copyAllDataToClipboard)
 
         self.panel_1.PopupMenu(menu,event.GetPoint())
         menu.Destroy() 
@@ -420,6 +423,23 @@ class MainFrame(wx.Frame):
         self.data.pop(self.item_clicked)
         self._updateListCtrl()
         self.data_changed=True
+
+    def copyAllDataToClipboard(self,event):
+        if not wx.TheClipboard.IsOpened():
+            wx.TheClipboard.Open()
+
+        clipdata = wx.TextDataObject()
+        s=''
+        for ii in range(len(self.data)):
+            s=s+'%i\t%f\t%i\t%s\n' % (ii,\
+                                        self.data[ii]['centroid'],\
+                                        round(self.data[ii]['charge']),\
+                                        self.data[ii]['comment'])
+
+        clipdata.SetText(s)
+        wx.TheClipboard.Open()
+        wx.TheClipboard.SetData(clipdata)
+        wx.TheClipboard.Close()
 
     def _pickpeak(self,x,y):
         ii=axis()
