@@ -307,7 +307,7 @@ class MainFrame(wx.Frame):
 
         # let the user click on the peaks, right click cancels last
         # point, middle button ends
-        d=ginput(0,timeout=0)
+        d=ginput(0,timeout=180)
 
         ii=axis()
         # XXX this is a bit dodgy
@@ -396,7 +396,8 @@ class MainFrame(wx.Frame):
         wx.AboutBox(info)
 
     def rightClickLine(self, event): # wxGlade: MainFrame.<event_handler>
-        self.item_clicked = int(event.GetText())
+        # XXX this is overly complicated
+        self.item_clicked = int(self.listctrlData.GetItem(event.GetIndex(),0).GetText())
         
         menu = wx.Menu()
         menu.Append(self.ids['addlinecomment'], 'Add comment' )
