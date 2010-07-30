@@ -211,13 +211,6 @@ class MainFrame(wx.Frame):
         self.x=take(self.xdata,find((self.xdata>self.low)&(self.xdata<self.high)))
         self.y=take(self.ydata,find((self.xdata>self.low)&(self.xdata<self.high)))
 
-        # threshold
-        self.yth=zeros(len(self.y))
-        for ii in range(0,len(self.y)):
-            if self.y[ii]<self.thres:
-                self.yth[ii]=0
-            else:
-                self.yth[ii]=self.y[ii]
 
     def suggestPeaks(self, event): # wxGlade: MainFrame.<event_handler>
         if self.low is None or self.high is None or self.thres is None:
@@ -235,10 +228,10 @@ class MainFrame(wx.Frame):
             pass
 
         # let the user select two peaks
-        localpeak1=self._pickpeak(self.x,self.yth)
+        localpeak1=self._pickpeak(self.x,self.y)
         x1=localpeak1[3]
         y1=localpeak1[1]
-        localpeak2=self._pickpeak(self.x,self.yth)
+        localpeak2=self._pickpeak(self.x,self.y)
         x2=localpeak2[3]
         distance=(max(x1,x2)-min(x1,x2))
         delta=distance*0.05
@@ -247,15 +240,15 @@ class MainFrame(wx.Frame):
         # start from startpeak, go to the right until self.high and mark
         # peaks, then do the same to the left
         self.peaklist=[]
-        localpeaklist=[localpeak1]
+        localpeaklist=[localpeak1[0:-1]]
 
         p=x1+distance
         i=2
 
         while p<self.high:
-            localpeak=self._localpeak((p,0),self.x,self.yth,delta)
-            if localpeak[1]>0:
-                localpeaklist.append(localpeak)
+            localpeak=self._localpeak((p,0),self.x,self.y,delta,self.thres)
+            if localpeak[1]>0 and localpeak[-1]<3 and localpeak[2]>0.0:
+                localpeaklist.append(localpeak[0:-1])
             p=x1+distance*i
             i=i+1
 
@@ -263,16 +256,17 @@ class MainFrame(wx.Frame):
         i=2
         
         while p>self.low:
-            localpeak=self._localpeak((p,0),self.x,self.y,delta)
-            if localpeak[1]>0:
-                localpeaklist.append(localpeak)
+            localpeak=self._localpeak((p,0),self.x,self.y,delta,self.thres)
+            if localpeak[1]>0 and localpeak[-1]<3 and localpeak[2]>0.0:
+                localpeaklist.append(localpeak[0:-1])
             p=x1-distance*i
             i=i+1
 
         self.peaklist=vstack(localpeaklist)
 
         tmp=axis()
-        self.peaks_sel=plot(self.peaklist[:,3],self.peaklist[:,2],'go')
+        self.peaks_sel=plot(self.peaklist[:,0],self.peaklist[:,1],'go',\
+                                self.peaklist[:,3],self.peaklist[:,2]+0.5*self.thres,'co')
         axis(tmp)
 
         self.centroid=self._centroid(self.low,self.high,self.peaklist)
@@ -308,8 +302,9 @@ class MainFrame(wx.Frame):
         delta=(ii[1]-ii[0])/200.0
 
         for p in d:
-            localpeak=self._localpeak(p,self.x,self.yth,delta)
-            localpeaklist.append(localpeak)
+            localpeak=self._localpeak(p,self.x,self.y,delta,self.thres)
+            if localpeak[1]>0 and localpeak[-1]<3 and localpeak[2]>0.0:
+                localpeaklist.append(localpeak[0:-1])
         
         self.peaklist=vstack(localpeaklist)
 
@@ -318,7 +313,8 @@ class MainFrame(wx.Frame):
             self.peaks_sel[0].remove()
         except:
             pass
-        self.peaks_sel=plot(self.peaklist[:,3],self.peaklist[:,2],'go')
+        self.peaks_sel=plot(self.peaklist[:,0],self.peaklist[:,1],'go',\
+                                self.peaklist[:,3],self.peaklist[:,2]+0.5*self.thres,'co')
         axis(tmp)
 
         self.centroid=self._centroid(self.low,self.high,self.peaklist)
@@ -392,33 +388,42 @@ class MainFrame(wx.Frame):
         delta=(ii[1]-ii[0])/200.0
         pos=ginput(1,timeout=0)
         pos=pos[0]
-        localpeak=self._localpeak(pos,x,y,delta)
+        localpeak=self._localpeak(pos,x,y,delta,self.thres)
 
         return localpeak
 
-    def _localpeak(self,pos,x,y,delta):
-        # this is a two-stage peak finding
-        # first, find the highest y value in delta
+    def _localpeak(self,pos,x,y,delta,thres):
+
         localx=take(x,find((x>(pos[0]-delta))&(x<(pos[0]+delta))))
         localy=take(y,find((x>(pos[0]-delta))&(x<(pos[0]+delta))))
 
-        localmax=localy.max()
-        localmaxpos=take(localx,find(localy==localy.max()))[0]
+        # threshold
+        localyth=zeros(len(localy))
+        for ii in range(0,len(localy)):
+            if localy[ii] < thres:
+                localyth[ii]=0
+            else:
+                localyth[ii]=localy[ii]
+
+        # this is a two-stage peak finding
+        # first, find the highest y value in delta
+        localmax=localyth.max()
+        localmaxpos=take(localx,find(localyth==localmax))[0]
 
         # then, fit a lorentzian in a smaller window delta2 around the
-        # maximum
-        delta2=0.007+localmax*0.15
+        # maximum, around 2x the expected peak width
+        delta2=2*0.003
 
         localx=take(x,find(abs(x-localmaxpos) < delta2))
         localy=take(y,find(abs(x-localmaxpos) < delta2))
 
-        xx=arange(min(localx),max(localx),0.0001)
+        xx=arange(localx[0],localx[-1],0.0001)
 
-        fitfunc = lambda p, x: p[0]/(1+((x-p[1])/p[2])**2)
+        fitfunc = lambda p, x: p[0]/(1+((x-p[1])/p[2])**2)+0.5*thres
         errfunc = lambda p, x, y: fitfunc(p,x)-y
 
-        p0=[localmax,localmaxpos,0.03]
-        p1, success = scipy.optimize.leastsq(errfunc, p0, args=(localx,localy))
+        p0=[localmax,localmaxpos,0.003]
+        p1, retcode = scipy.optimize.leastsq(errfunc, p0, args=(localx,localy))
 
         if verbose:
             figure(2)
@@ -438,7 +443,7 @@ class MainFrame(wx.Frame):
             p[0].remove()
             draw()
 
-        return (localmaxpos,localmax,p1[0],p1[1],p1[2])
+        return (localmaxpos,localmax,p1[0],p1[1],p1[2],retcode)
 
     def _centroid(self, low, high, localpeaklist):
         c=0.0
