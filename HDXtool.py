@@ -470,6 +470,14 @@ class MainFrame(wx.Frame):
         # maximum, around 2x the expected peak width
         delta2=2*0.003
 
+        # make sure that we fit at least minnumpoints points, even if
+        # the spacing in x is too large
+        minnumpoints=9
+        stepsize=mean(diff(localx))
+
+        if stepsize > 2*delta2/minnumpoints:
+            delta2=1.1*minnumpoints/2.0*stepsize
+
         localx=take(x,find(abs(x-localmaxpos) < delta2))
         localy=take(y,find(abs(x-localmaxpos) < delta2))
 
