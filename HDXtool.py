@@ -150,9 +150,20 @@ class MainFrame(wx.Frame):
     def loadData(self, event): # wxGlade: MainFrame.<event_handler>
         dlg=wx.FileDialog(self)
         if dlg.ShowModal() == wx.ID_OK:
-            # load data file, plot data
             self.dfile=dlg.GetPath()
+            del(dlg)
+            self.frame_1_statusbar.SetStatusText("Loading data ...")
+
+            # disable windows while data is being loaded
+            wx.Yield()
+            disabler=wx.WindowDisabler()
+            wx.Yield()
+            busy=wx.BusyInfo("loading data, please wait ...")
+            wx.Yield()
+            # load data file, plot data
+            wx.Yield()
             d=loadtxt(self.dfile)
+            wx.Yield()
             self.xdata=d[:,0]
             self.ydata=d[:,1]
             self.ydata=self.ydata/max(self.ydata)
@@ -181,6 +192,7 @@ class MainFrame(wx.Frame):
             show()
             draw()
             self.data_changed=False
+            self.frame_1_statusbar.SetStatusText("Ready")
    
     def setROI(self, event): # wxGlade: MainFrame.<event_handler>
         if self.dfile == '':
