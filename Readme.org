@@ -1,0 +1,38 @@
+#+TITLE: HDXtool.py: peak extraction from Mass Spectra
+
+This little program semi-automatically fits the exact position and
+abundance of peaks belonging to the same fragment in e.g. top-down MS
+spectra of proteins and can be used for a variety of other purposes,
+like extracting exact centroid masses for Hydrogen-Deuterium-Exchange
+(HDX) experiments.
+
+* Downloads
+
+The latest version 0.1 can be downloaded from [[http://www.tydirium.org/daniel/downloads/HDXtool/HDXtool-0.1.py][here]].
+
+* Installation
+
+Prerequisites: You will need the [[http://www.python.org][Python interpreter]] and the following
+Python modules: 
+
+- [[http://pyyaml.org/][py-yaml]]
+- [[www.wxpython.org][wxPython]]
+- [[http://matplotlib.sourceforge.net/][matplotlib]]
+- [[http://www.scipy.org][SciPy]]
+
+After having these installed, just run the HDXtool.py script.
+
+* Usage
+
+* Data format
+
+YAML
+
+list of dictionaries, contains each:
+
+- low
+- high
+- thres
+- centroid
+- charge state
+- peaks (list of xy data)
