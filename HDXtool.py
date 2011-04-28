@@ -18,6 +18,8 @@
 # TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
 # PERFORMANCE OF THIS SOFTWARE.
 
+# this is version 1.0 of HDXtool
+
 import wx
 
 # begin wxGlade: extracode

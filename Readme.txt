@@ -13,10 +13,10 @@ daniel@tydirium.org.
 1 Downloads 
 ~~~~~~~~~~~~
 
-The latest version 0.1 can be downloaded from [here].
+The latest version 1.0 can be downloaded from [here].
 
 
-[here]: http://www.tydirium.org/daniel/downloads/HDXtool/HDXtool-0.1.py
+[here]: http://www.tydirium.org/daniel/downloads/HDXtool/HDXtool-1.0.py
 
 2 Installation 
 ~~~~~~~~~~~~~~~
