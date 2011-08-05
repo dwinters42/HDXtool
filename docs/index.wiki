@@ -1,0 +1,69 @@
+This little program semi-automatically fits the exact position and
+abundance of peaks belonging to the same fragment in e.g. top-down MS
+spectra of proteins and can be used for a variety of other purposes,
+like extracting exact centroid masses for Hydrogen-Deuterium-Exchange
+(HDX) experiments.
+
+For questions or in case of problems please contact me at
+daniel@tydirium.org.
+
+<h1>Downloads</h1>
+
+The latest version 1.0 can be downloaded from
+[http://www.tydirium.org/daniel/downloads/HDXtool/HDXtool-1.0.zip|here].
+
+<h1>Installation</h1>
+
+Prerequisites: You will need the [http://www.python.org|Python
+interpreter] and the following Python modules:
+
+  *   [http://pyyaml.org/|py-yaml]
+  *   [www.wxpython.org|wxPython]
+  *   [http://matplotlib.sourceforge.net/|matplotlib]
+  *   [http://www.scipy.org|SciPy]
+
+After having these installed, just run the HDXtool.py script.
+
+<h1>Usage</h1>
+
+The workflow is like this:
+
+  #  Load a datafile containing comma separated XY mass spectrum,
+     e.g. like the included "test.dat" (which is an oversimplified
+     example). This loads the file and pops up a window showing the
+     spectrum.
+  #  Next, press the "Region Of Interest" (ROI) button and click on
+     three points in the spectrum plot to define the baseline
+     (everything over the baseline will be searched for peaks), the
+     left boundary for the search and finally the right boundary of
+     the fragment you want to work on. You will get three lines in the
+     spectrum plot.
+  #  Press "Suggest" and then click on the highest peak in the fragment
+     series, which will be fitted and the fit will show in a new
+     window.
+  #  Click on the next peak to the right or left of the main peak, which
+     will be fitted again.
+  #  The program will now try to find all peaks belonging to the
+     fragment, fit them and mark the position in the spectrum
+     plot. Finally, it will show the fitted curves in a new window.
+  #  If you like the fit, press "Accept" and the peaks will be memorized
+     by the program. A line in the main window shows the centroid mass
+     and position and charge state.
+  #  By right-clicking on a line you can delete a fragment, add a
+     comment or copy the selection to the clipboard for e.g. pasting
+     into Excel.
+  #  Finally, pressing the "Save button" will generate a text file in
+     YAML format with all the fitdata. The next time the data file is
+     openend, the fitdata is imported as well.
+
+<h1>Data format</h1>
+
+The fitdata is saved in a special text format called YAML that is
+human-friendly and contains the fitted data for all fragements:
+
+  *   lower boundary ("low")
+  *   high boundary ("high")
+  *   Baseline ("thres") 
+  *   Centroid mass ("centroid")
+  *   Charge state ("charge state")
+  *   the actual peak fitdata ("peaks")
